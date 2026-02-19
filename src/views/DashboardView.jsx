@@ -3,7 +3,8 @@ import StatCard from '../components/StatCard';
 import LogTable from '../components/LogTable';
 import { Users, UserPlus, Car, CheckCircle, Calendar, Clock, ArrowRight, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { updateTelegramMessage, getTelegramUpdates, answerCallbackQuery, sendForceReply, editTelegramMessageMarkup, getTimeSelectorKeyboard, getMinuteSelectorKeyboard } from '../lib/telegram';
+import { updateTelegramMessage, getTelegramUpdates, answerCallbackQuery, sendForceReply, editTelegramMessageMarkup, getTimeSelectorKeyboard, getMinuteSelectorKeyboard, formatApprovedMessage, formatDeniedMessage } from '../lib/telegram';
+import { sendSMS } from '../lib/sms';
 import { logAudit } from '../lib/audit';
 
 const DashboardView = ({ user }) => {
@@ -178,21 +179,25 @@ const DashboardView = ({ user }) => {
             if (meeting.telegram_chat_id && meeting.telegram_message_id) {
                 const arrivalTime = new Date(meeting.created_at).toLocaleTimeString();
                 const confirmationTime = new Date().toLocaleTimeString();
-                const newText = `
-📅 <b>Meeting Scheduled</b> (via Dashboard)
-
-👤 <b>Visitor(s):</b> ${meeting.visitor_name}
-🏢 <b>Purpose:</b> ${meeting.purpose}
-🤝 <b>Meeting With:</b> ${meeting.meeting_with || 'Not Specified'}
-⏰ <b>Request Received:</b> ${arrivalTime}
-
-👮‍♂️ <b>Approved By:</b> Dashboard Admin
-⏰ <b>Scheduled At:</b> ${confirmationTime}
-
-🕒 <b>Assigned Slot:</b> 10:00 - 11:00
-📍 <b>Next Step:</b> Please check-in via the kiosk.
-                `.trim();
+                const newText = formatApprovedMessage({
+                    visitorNames: meeting.visitor_name,
+                    purpose: meeting.purpose,
+                    meetingWith: meeting.meeting_with,
+                    requestReceived: arrivalTime,
+                    approvedBy: 'Dashboard Admin',
+                    approvedAt: confirmationTime,
+                    startTime: '10:00',
+                    endTime: '11:00',
+                    date: meeting.meeting_date,
+                    sourceTag: '(via Dashboard)'
+                });
                 updateTelegramMessage(meeting.telegram_chat_id, meeting.telegram_message_id, newText);
+            }
+
+            // Send SMS notification
+            if (meeting.visitor_contact) {
+                const smsMessage = `Your meeting with ${meeting.meeting_with || 'Lyceum Staff'} has been scheduled for ${meeting.meeting_date} at 10:00 AM. (scheduled through the web page)`;
+                await sendSMS(meeting.visitor_contact, smsMessage);
             }
         } else {
             // Legacy handleApprove for visitors table
@@ -244,17 +249,20 @@ const DashboardView = ({ user }) => {
 
             if (meeting?.telegram_chat_id && meeting?.telegram_message_id) {
                 const actionTime = new Date().toLocaleTimeString();
-                const newText = `
-❌ <b>Meeting Request Cancelled</b>
-
-👤 <b>Visitor(s):</b> ${meeting.visitor_name}
-🏢 <b>Purpose:</b> ${meeting.purpose}
-🤝 <b>Meeting With:</b> ${meeting.meeting_with || 'Not Specified'}
-
-👮‍♂️ <b>Action By:</b> Dashboard Admin
-⏰ <b>Time:</b> ${actionTime}
-                `.trim();
+                const newText = formatDeniedMessage({
+                    visitorNames: meeting.visitor_name,
+                    purpose: meeting.purpose,
+                    meetingWith: meeting.meeting_with,
+                    actionBy: 'Dashboard Admin',
+                    actionAt: actionTime
+                });
                 updateTelegramMessage(meeting.telegram_chat_id, meeting.telegram_message_id, newText);
+            }
+
+            // Send SMS notification for rejection
+            if (meeting?.visitor_contact) {
+                const smsMessage = `Your meeting request with ${meeting.meeting_with || 'Lyceum Staff'} has been denied. Please contact the security department for more information.`;
+                await sendSMS(meeting.visitor_contact, smsMessage);
             }
         } else {
             const { data: visitor } = await supabase.from('visitors').select('name').eq('id', id).single();
@@ -611,8 +619,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
                     status: 'Checked-in',
                     validation_method: 'Agent-Auto',
                     is_pre_registered: true,
-                    meeting_from: meeting.start_time ? meeting.start_time.slice(0, 5) : null,
-                    meeting_to: meeting.end_time ? meeting.end_time.slice(0, 5) : null
+                    source_tag: meeting.request_source === 'webpage' ? 'pre-scheduled-via web page' : null
                 });
 
 
@@ -703,207 +710,189 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
     });
 
     return (
-        <div className="animate-fade-in" style={{ padding: '1rem 0' }}>
-            {showAnalytics && (
-                <div className="grid grid-cols-2 gap-6" style={{ marginBottom: '2.5rem' }}>
-                    {stats.map((stat, idx) => (
-                        <StatCard key={idx} {...stat} />
-                    ))}
-                </div>
-            )}
-            {!showAnalytics && (
-                <div style={{ marginBottom: '2rem', padding: '0 1rem' }}>
-                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Real-time Operations</h2>
-                    <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Monitor and manage secure facility access.</p>
-                </div>
-            )}
-
-            {/* Pending Approvals Section (Admin/Security Only) */}
-            {pendingVisitors.length > 0 && !['School Operations', 'School Management'].includes(user?.role) && (
-                <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid rgba(234, 179, 8, 0.3)', background: 'rgba(234, 179, 8, 0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <div className="animate-pulse" style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EAB308' }}></div>
-                            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#EAB308', letterSpacing: '-0.01em' }}>Pending Approvals ({pendingVisitors.length})</h3>
-                        </div>
+        <>
+            <div className="animate-fade-in" style={{ padding: '1rem 0' }}>
+                {showAnalytics && (
+                    <div className="grid grid-cols-2 gap-6" style={{ marginBottom: '2.5rem' }}>
+                        {stats.map((stat, idx) => (
+                            <StatCard key={idx} {...stat} />
+                        ))}
                     </div>
+                )}
+                {!showAnalytics && (
+                    <div style={{ marginBottom: '2rem', padding: '0 1rem' }}>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Real-time Operations</h2>
+                        <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Monitor and manage secure facility access.</p>
+                    </div>
+                )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1rem' }}>
-                        {pendingVisitors.map(visitor => (
-                            <div key={`${visitor.sourceTable}-${visitor.id}`} style={{
-                                padding: '1.25rem',
-                                background: 'rgba(0,0,0,0.2)',
-                                borderRadius: '12px',
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                            }}>
+                {/* Expected Today Section - Full Width */}
+                {!['School Operations', 'School Management'].includes(user?.role) && (
+                    <div className="card" style={{ padding: '1.75rem', marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255, 140, 0, 0.1)', borderRadius: '12px' }}>
+                                    <Calendar size={24} color="var(--primary)" />
+                                </div>
                                 <div>
-                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                                        {visitor.name} {visitor.sourceTable === 'scheduled_meetings' && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgba(234, 179, 8, 0.2)', color: '#EAB308', padding: '0.1rem 0.4rem', borderRadius: '4px', marginLeft: '0.5rem' }}>MTG REQ</span>}
-                                    </div>
-                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                                        To meet: <span style={{ color: 'var(--text-main)' }}>{visitor.meeting_with || 'General'}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', fontStyle: 'italic' }}>
-                                        "{visitor.purpose}"
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                    <button
-                                        onClick={() => handleReject(visitor.id, visitor.sourceTable)}
-                                        style={{
-                                            padding: '0.5rem 1rem',
-                                            borderRadius: '8px',
-                                            border: '1px solid #EF4444',
-                                            color: '#EF4444',
-                                            background: 'transparent',
-                                            cursor: 'pointer',
-                                            fontWeight: 600,
-                                            fontSize: '0.8125rem'
-                                        }}
-                                    >
-                                        Deny
-                                    </button>
-                                    <button
-                                        onClick={() => handleApprove(visitor.id, visitor.sourceTable)}
-                                        style={{
-                                            padding: '0.5rem 1rem',
-                                            borderRadius: '8px',
-                                            background: '#10B981',
-                                            color: '#fff',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            fontWeight: 700,
-                                            fontSize: '0.8125rem',
-                                            boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)'
-                                        }}
-                                    >
-                                        Approve
-                                    </button>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '0.25rem' }}>Expected Today</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Scheduled arrivals for today</p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+                            <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                padding: '0.25rem 0.75rem',
+                                backgroundColor: 'rgba(255, 140, 0, 0.1)',
+                                color: 'var(--primary)',
+                                borderRadius: '20px',
+                                border: '1px solid rgba(255, 140, 0, 0.2)'
+                            }}>
+                                {scheduledMeetings.length} ARRIVALS
+                            </span>
+                        </div>
 
-            {/* Expected Today Section - Full Width */}
-            {!['School Operations', 'School Management'].includes(user?.role) && (
-                <div className="card" style={{ padding: '1.75rem', marginBottom: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255, 140, 0, 0.1)', borderRadius: '12px' }}>
-                                <Calendar size={24} color="var(--primary)" />
-                            </div>
-                            <div>
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '0.25rem' }}>Expected Today</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Scheduled arrivals for today</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
+                            {scheduledMeetings.length === 0 ? (
+                                <div className="col-span-full" style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px dashed var(--glass-border)' }}>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Quiet day so far. No arrivals scheduled.</p>
+                                </div>
+                            ) : (
+                                scheduledMeetings.map(meeting => (
+                                    <div key={meeting.id} style={{
+                                        padding: '1.25rem',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '16px',
+                                        transition: 'var(--transition)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.9375rem' }}>{meeting.visitor_name}</span>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>
+                                                <Clock size={12} /> {meeting.start_time.slice(0, 5)}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+                                            Hosting: <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{meeting.meeting_with}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleCheckIn(meeting)}
+                                            className="btn-primary"
+                                            style={{
+                                                width: '100%',
+                                                fontSize: '0.8125rem',
+                                                padding: '0.75rem',
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                borderRadius: '12px'
+                                            }}
+                                        >
+                                            <CheckCircle size={14} />
+                                            Confirm Arrival
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Pending Approvals Section (Admin/Security Only) */}
+                {pendingVisitors.length > 0 && !['School Operations', 'School Management'].includes(user?.role) && (
+                    <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid rgba(234, 179, 8, 0.3)', background: 'rgba(234, 179, 8, 0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div className="animate-pulse" style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EAB308' }}></div>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#EAB308', letterSpacing: '-0.01em' }}>Pending Approvals ({pendingVisitors.length})</h3>
                             </div>
                         </div>
-                        <span style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            padding: '0.25rem 0.75rem',
-                            backgroundColor: 'rgba(255, 140, 0, 0.1)',
-                            color: 'var(--primary)',
-                            borderRadius: '20px',
-                            border: '1px solid rgba(255, 140, 0, 0.2)'
-                        }}>
-                            {scheduledMeetings.length} ARRIVALS
-                        </span>
-                    </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
-                        {scheduledMeetings.length === 0 ? (
-                            <div className="col-span-full" style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px dashed var(--glass-border)' }}>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Quiet day so far. No arrivals scheduled.</p>
-                            </div>
-                        ) : (
-                            scheduledMeetings.map(meeting => (
-                                <div key={meeting.id} style={{
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1rem' }}>
+                            {pendingVisitors.map(visitor => (
+                                <div key={`${visitor.sourceTable}-${visitor.id}`} style={{
                                     padding: '1.25rem',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                                    border: '1px solid var(--glass-border)',
-                                    borderRadius: '16px',
-                                    transition: 'var(--transition)'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                                        <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.9375rem' }}>{meeting.visitor_name}</span>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600 }}>
-                                            <Clock size={12} /> {meeting.start_time.slice(0, 5)}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-                                        Hosting: <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{meeting.meeting_with}</span>
-                                    </div>
-                                    <button
-                                        onClick={() => handleCheckIn(meeting)}
-                                        className="btn-primary"
-                                        style={{
-                                            width: '100%',
-                                            fontSize: '0.8125rem',
-                                            padding: '0.75rem',
-                                            display: 'flex',
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            borderRadius: '12px'
-                                        }}
-                                    >
-                                        <CheckCircle size={14} />
-                                        Confirm Arrival
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 gap-8">
-                {/* Main Content - Logs */}
-                <div className="w-full space-y-8">
-                    <div style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                        padding: '0.4rem',
-                        display: 'inline-flex',
-                        gap: '0.25rem',
-                        borderRadius: '16px',
-                        border: '1px solid var(--glass-border)',
-                        marginBottom: '0.5rem',
-                        maxWidth: '100%',
-                        overflowX: 'auto',
-                        whiteSpace: 'nowrap'
-                    }}>
-                        {['All', 'Visitor', 'Vehicle'].map(filter => (
-                            <button
-                                key={filter}
-                                onClick={() => setLogFilter(filter)}
-                                style={{
-                                    padding: '0.625rem 1.25rem',
+                                    background: 'rgba(0,0,0,0.2)',
                                     borderRadius: '12px',
-                                    backgroundColor: logFilter === filter ? 'var(--primary)' : 'transparent',
-                                    color: logFilter === filter ? 'white' : 'var(--text-muted)',
-                                    fontWeight: 700,
-                                    fontSize: '0.8125rem',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    transition: 'var(--transition)',
-                                    boxShadow: logFilter === filter ? '0 4px 12px rgba(255, 140, 0, 0.2)' : 'none'
-                                }}
-                            >
-                                {filter === 'Visitor' ? 'Visitors' : filter === 'Vehicle' ? 'Vehicles' : filter}
-                            </button>
-                        ))}
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                                            {visitor.name}
+                                            {visitor.sourceTable === 'scheduled_meetings' && (
+                                                <span style={{
+                                                    fontSize: '0.65rem',
+                                                    backgroundColor: visitor.telegram_chat_id ? 'rgba(59, 130, 246, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                                                    color: visitor.telegram_chat_id ? '#3b82f6' : '#EAB308',
+                                                    padding: '0.1rem 0.4rem',
+                                                    borderRadius: '4px',
+                                                    marginLeft: '0.5rem'
+                                                }}>
+                                                    {visitor.telegram_chat_id ? 'SITE REQ' : 'Kiosk Req'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                                            To meet: <span style={{ color: 'var(--text-main)' }}>{visitor.meeting_with || 'General'}</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                                            "{visitor.purpose}"
+                                        </div>
+                                    </div>
+                                    {/* Buttons removed per user request - approval via Telegram only */}
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                    <LogTable title={`Access Activity - ${logFilter === 'All' ? 'Live' : logFilter + 's'} `} data={filteredLog} columns={columns} />
-                </div>
+                )}
 
+                <div className="grid grid-cols-1 gap-8">
+                    {/* Main Content - Logs */}
+                    <div className="w-full space-y-8">
+                        <div style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                            padding: '0.4rem',
+                            display: 'inline-flex',
+                            gap: '0.25rem',
+                            borderRadius: '16px',
+                            border: '1px solid var(--glass-border)',
+                            marginBottom: '0.5rem',
+                            maxWidth: '100%',
+                            overflowX: 'auto',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {['All', 'Visitor', 'Vehicle'].map(filter => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setLogFilter(filter)}
+                                    style={{
+                                        padding: '0.625rem 1.25rem',
+                                        borderRadius: '12px',
+                                        backgroundColor: logFilter === filter ? 'var(--primary)' : 'transparent',
+                                        color: logFilter === filter ? 'white' : 'var(--text-muted)',
+                                        fontWeight: 700,
+                                        fontSize: '0.8125rem',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'var(--transition)',
+                                        boxShadow: logFilter === filter ? '0 4px 12px rgba(255, 140, 0, 0.2)' : 'none'
+                                    }}
+                                >
+                                    {filter === 'Visitor' ? 'Visitors' : filter === 'Vehicle' ? 'Vehicles' : filter}
+                                </button>
+                            ))}
+                        </div>
+                        <LogTable title={`Access Activity - ${logFilter === 'All' ? 'Live' : logFilter + 's'} `} data={filteredLog} columns={columns} />
+                    </div>
+
+                </div>
             </div>
 
-            {/* Custom Confirmation Modal */}
+            {/* Custom Confirmation Modal - Moved OUTSIDE animate-fade-in to fix centering */}
             {
                 confirmingMeeting && (
                     <div style={{
@@ -914,7 +903,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
                         height: '100vh',
                         backgroundColor: 'rgba(0,0,0,0.8)',
                         backdropFilter: 'blur(10px)',
-                        zIndex: 1000,
+                        zIndex: 9999, /* Increased z-index */
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -925,9 +914,9 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
                                     <Users size={40} color="var(--primary)" />
                                 </div>
                             </div>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>Confirm Arrival</h3>
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-                                Authorize entry for <strong>{confirmingMeeting.visitor_name}</strong> to meet with <strong>{confirmingMeeting.meeting_with}</strong>?
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem', textAlign: 'center', width: '100%' }}>Confirm Arrival</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', textAlign: 'center', width: '100%', display: 'block' }}>
+                                Authorize entry for <strong style={{ color: 'var(--text-main)' }}>{confirmingMeeting.visitor_name}</strong> to meet with <strong style={{ color: 'var(--text-main)' }}>{confirmingMeeting.meeting_with}</strong>?
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <button
@@ -948,7 +937,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
                     </div>
                 )
             }
-        </div >
+        </>
     );
 };
 

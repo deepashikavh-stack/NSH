@@ -13,7 +13,9 @@ import LoginPage from './views/LoginPage';
 import VisitorSelfCheckIn from './components/VisitorSelfCheckIn';
 import VisitorCheckOut from './components/VisitorCheckOut';
 import SettingsView from './views/SettingsView';
+import AuditTrailView from './views/AuditTrailView';
 import ExternalApprovalView from './views/ExternalApprovalView';
+import PublicMeetingRequestView from './views/PublicMeetingRequestView';
 import { ArrowLeft } from 'lucide-react';
 import { AlertProvider } from './context/AlertContext';
 import { logAudit } from './lib/audit';
@@ -62,7 +64,7 @@ function AppContent() {
   useEffect(() => {
     // Sync activeTab with URL if possible, or just keep it simple for now
     const path = location.pathname.substring(1);
-    if (path && ['dashboard', 'scheduled-meetings', 'visitors', 'vehicles', 'reports', 'user-management'].includes(path)) {
+    if (path && ['dashboard', 'scheduled-meetings', 'visitors', 'vehicles', 'reports', 'audit-trail', 'user-management', 'settings'].includes(path)) {
       setActiveTab(path);
     }
   }, [location]);
@@ -112,15 +114,18 @@ function AppContent() {
 
   const isKioskMode = location.pathname.startsWith('/kiosk');
   const isApprovalLink = location.pathname.startsWith('/approve');
+  const isPublicMeetingRequest = location.pathname === '/request-meeting';
 
-  if (!user && !isKioskMode && !isApprovalLink && location.pathname !== '/' && location.pathname !== '/login') {
+  if (!user && !isKioskMode && !isApprovalLink && !isPublicMeetingRequest && location.pathname !== '/' && location.pathname !== '/login') {
     return <Navigate to="/" replace />;
   }
+
+  const isStandalone = isKioskMode || isApprovalLink || isPublicMeetingRequest;
 
   return (
     <AlertProvider user={user}>
       <div className="app-container" style={{ display: 'flex', minHeight: '100vh' }}>
-        {user && !isKioskMode && (
+        {user && !isStandalone && (
           <Sidebar
             activeTab={activeTab}
             setActiveTab={(tab) => {
@@ -137,7 +142,7 @@ function AppContent() {
 
         <main style={{
           flex: 1,
-          marginLeft: (user && !isKioskMode && !isMobile) ? '280px' : '0',
+          marginLeft: (user && !isStandalone && !isMobile) ? '280px' : '0',
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: 'transparent',
@@ -173,7 +178,7 @@ function AppContent() {
               </div>
             </header>
           ) : (
-            user && <Navbar
+            user && !isStandalone && <Navbar
               activeTab={activeTab}
               user={user}
               theme={theme}
@@ -185,7 +190,7 @@ function AppContent() {
 
           <div className="main-content" style={{
             flex: 1,
-            padding: (user && !isKioskMode && !isMobile) ? '0 1.5rem 1.5rem 0' : '1rem'
+            padding: (user && !isStandalone && !isMobile) ? '0 1.5rem 1.5rem 0' : '0'
           }}>
             <Routes>
               <Route path="/" element={<VisitorTypeSelection />} />
@@ -196,6 +201,7 @@ function AppContent() {
               <Route path="/scheduled-meetings" element={<ScheduledMeetingsView />} />
               <Route path="/vehicles" element={<VehiclesView />} />
               <Route path="/reports" element={<ReportsView user={user} />} />
+              <Route path="/audit-trail" element={<AuditTrailView />} />
               <Route path="/user-management" element={<UserManagementView />} />
               <Route path="/settings" element={<SettingsView user={user} onUpdateUser={handleUpdateUser} />} />
 
@@ -204,6 +210,7 @@ function AppContent() {
               <Route path="/kiosk/check-out" element={<VisitorCheckOut />} />
               <Route path="/kiosk/vehicles" element={<VehiclesView />} />
               <Route path="/approve/:token" element={<ExternalApprovalView />} />
+              <Route path="/request-meeting" element={<PublicMeetingRequestView />} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

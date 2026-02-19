@@ -212,7 +212,7 @@ const LoginPage = ({ onLogin, onBack }) => {
 
                 <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1.5rem' }}>
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('login.user_account')}</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('kiosk.user_account')}</label>
                         <select
                             value={username}
                             onChange={(e) => handleUserChange(e.target.value)}
@@ -229,15 +229,13 @@ const LoginPage = ({ onLogin, onBack }) => {
                             }}
                         >
                             {loading ? (
-                                <option style={{ backgroundColor: '#1a1d21' }}>{t('login.loading_users')}</option>
+                                <option style={{ backgroundColor: '#1a1d21' }}>{t('kiosk.loading_users')}</option>
                             ) : users.length === 0 ? (
-                                <option style={{ backgroundColor: '#1a1d21' }}>{t('login.no_users')}</option>
+                                <option style={{ backgroundColor: '#1a1d21' }}>{t('kiosk.no_users')}</option>
                             ) : (
                                 users.map(user => (
                                     <option key={user.id} value={user.email} style={{ backgroundColor: '#1a1d21' }}>
-                                        {user.role === 'Security Officer'
-                                            ? `${user.full_name} (${user.role})`
-                                            : user.full_name}
+                                        {user.full_name} ({t(`roles.${user.role.toLowerCase().replace(/ /g, '_')}`)})
                                     </option>
                                 ))
                             )}
@@ -245,14 +243,14 @@ const LoginPage = ({ onLogin, onBack }) => {
                     </div>
 
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>User Identifier</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('kiosk.user_identifier')}</label>
                         <div style={{ position: 'relative' }}>
                             <User size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                             <input
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                placeholder="Employee ID or Username"
+                                placeholder={t('kiosk.employee_id_placeholder')}
                                 style={{
                                     width: '100%',
                                     padding: '1rem 1rem 1rem 3rem',
@@ -268,7 +266,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                     </div>
 
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Security Key</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('kiosk.security_key')}</label>
                         <div style={{ position: 'relative' }}>
                             <Lock size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                             <input
@@ -308,7 +306,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                                 textDecoration: 'underline'
                             }}
                         >
-                            {t('login.forgot_password')}
+                            {t('kiosk.forgot_password')}
                         </button>
                     </div>
                 </form>
@@ -331,7 +329,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                 }}>
                     <div className="card animate-fade-in-static" style={{ maxWidth: '450px', width: '90%', padding: '2.5rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>Reset Password</h3>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>{t('kiosk.reset_modal.title')}</h3>
                             <button
                                 onClick={() => {
                                     setShowForgotPassword(false);
@@ -346,20 +344,20 @@ const LoginPage = ({ onLogin, onBack }) => {
                         </div>
 
                         <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.875rem' }}>
-                            Enter your email address and a new password to reset your account.
+                            {t('kiosk.reset_modal.instruction')}
                         </p>
 
                         <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
-                                    Email Address
+                                    {t('kiosk.reset_modal.email_label')}
                                 </label>
                                 <input
                                     type="email"
                                     required
                                     value={resetEmail}
                                     onChange={(e) => setResetEmail(e.target.value)}
-                                    placeholder="your.email@example.com"
+                                    placeholder={t('kiosk.reset_modal.email_placeholder')}
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem',
@@ -374,7 +372,7 @@ const LoginPage = ({ onLogin, onBack }) => {
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
-                                    New Password
+                                    {t('kiosk.reset_modal.new_password')}
                                 </label>
                                 <div style={{ position: 'relative' }}>
                                     <Key size={18} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -383,7 +381,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                                         required
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        placeholder="Enter new password"
+                                        placeholder={t('kiosk.reset_modal.new_password_placeholder')}
                                         style={{
                                             width: '100%',
                                             padding: '0.75rem 0.75rem 0.75rem 2.75rem',
@@ -399,7 +397,7 @@ const LoginPage = ({ onLogin, onBack }) => {
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
-                                    Confirm New Password
+                                    {t('kiosk.reset_modal.confirm_password')}
                                 </label>
                                 <div style={{ position: 'relative' }}>
                                     <Key size={18} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -408,7 +406,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                                         required
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
-                                        placeholder="Confirm new password"
+                                        placeholder={t('kiosk.reset_modal.confirm_password_placeholder')}
                                         style={{
                                             width: '100%',
                                             padding: '0.75rem 0.75rem 0.75rem 2.75rem',
@@ -442,7 +440,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    Cancel
+                                    {t('kiosk.reset_modal.cancel')}
                                 </button>
                                 <button
                                     type="submit"
@@ -455,7 +453,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                                         fontWeight: 700
                                     }}
                                 >
-                                    {resetting ? 'Resetting...' : 'Reset Password'}
+                                    {resetting ? t('kiosk.reset_modal.resetting') : t('kiosk.reset_modal.reset_btn')}
                                 </button>
                             </div>
                         </form>

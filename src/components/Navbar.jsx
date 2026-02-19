@@ -17,7 +17,8 @@ const Navbar = ({ activeTab, user, theme, toggleTheme, onToggleSidebar, isMobile
             case 'visitors': return t('common.visitor_registry');
             case 'vehicles': return t('common.vehicle_access');
             case 'reports': return t('common.security_analytics');
-            case 'settings': return t('common.account_configuration');
+            case 'audit-trail': return 'Audit Trail';
+            case 'settings': return t('common.settings');
             default: return t('common.overview');
         }
     };

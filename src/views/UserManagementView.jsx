@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Users, Plus, Edit, Trash2, Search, X, Shield, Mail, User as UserIcon, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 
 const UserManagementView = () => {
+    const { t } = useTranslation();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -144,11 +146,11 @@ const UserManagementView = () => {
             <div style={{ padding: '0 1.5rem', marginBottom: '2.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <div>
-                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>User Management</h2>
-                        <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Manage system users and access control.</p>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{t('user_management.title')}</h2>
+                        <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{t('user_management.subtitle')}</p>
                     </div>
                     <button className="btn-primary" onClick={handleCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Plus size={18} /> Create User
+                        <Plus size={18} /> {t('user_management.create_user')}
                     </button>
                 </div>
 
@@ -158,7 +160,7 @@ const UserManagementView = () => {
                         <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
                             type="text"
-                            placeholder="Search by name or email..."
+                            placeholder={t('user_management.search_placeholder')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{
@@ -185,9 +187,9 @@ const UserManagementView = () => {
                             outline: 'none'
                         }}
                     >
-                        <option value="All">All Roles</option>
+                        <option value="All">{t('user_management.all_roles')}</option>
                         {roles.map(role => (
-                            <option key={role} value={role} style={{ backgroundColor: '#1a1d21' }}>{role}</option>
+                            <option key={role} value={role} style={{ backgroundColor: '#1a1d21' }}>{t(`roles.${role.toLowerCase().replace(/ /g, '_')}`)}</option>
                         ))}
                     </select>
                 </div>
@@ -199,21 +201,21 @@ const UserManagementView = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--glass-border)' }}>
-                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>User</th>
-                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Email</th>
-                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Role</th>
-                                <th style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Status</th>
-                                <th style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Actions</th>
+                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t('user_management.table.user')}</th>
+                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t('user_management.table.email')}</th>
+                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t('user_management.table.role')}</th>
+                                <th style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t('user_management.table.status')}</th>
+                                <th style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t('user_management.table.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading users...</td>
+                                    <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>{t('common.loading')}</td>
                                 </tr>
                             ) : filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No users found</td>
+                                    <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>{t('kiosk.no_users')}</td>
                                 </tr>
                             ) : (
                                 filteredUsers.map(user => (
@@ -250,7 +252,7 @@ const UserManagementView = () => {
                                                 color: user.role === 'Admin' ? '#ef4444' : '#3b82f6',
                                                 border: `1px solid ${user.role === 'Admin' ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`
                                             }}>
-                                                {user.role}
+                                                {t(`roles.${user.role.toLowerCase().replace(/ /g, '_')}`)}
                                             </span>
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -271,7 +273,7 @@ const UserManagementView = () => {
                                                 }}
                                             >
                                                 {user.is_active ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                                                {user.is_active ? 'Active' : 'Inactive'}
+                                                {user.is_active ? t('user_management.status.active') : t('user_management.status.inactive')}
                                             </button>
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -330,7 +332,7 @@ const UserManagementView = () => {
                     <div className="modal-content-wrapper animate-fade-in-static">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                                {modalMode === 'create' ? 'Create New User' : 'Edit User'}
+                                {modalMode === 'create' ? t('user_management.modal.create_title') : t('user_management.modal.edit_title')}
                             </h3>
                             <button onClick={() => setShowModal(false)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '8px' }}>
                                 <X size={20} />
@@ -341,7 +343,7 @@ const UserManagementView = () => {
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
                                     <Mail size={14} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                                    Email Address *
+                                    {t('user_management.modal.email')}
                                 </label>
                                 <input
                                     type="email"
@@ -364,7 +366,7 @@ const UserManagementView = () => {
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
                                     <UserIcon size={14} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                                    Full Name *
+                                    {t('user_management.modal.full_name')}
                                 </label>
                                 <input
                                     type="text"
@@ -387,7 +389,7 @@ const UserManagementView = () => {
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
                                     <Shield size={14} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                                    Role *
+                                    {t('user_management.modal.role')}
                                 </label>
                                 <select
                                     value={formData.role}
@@ -404,7 +406,7 @@ const UserManagementView = () => {
                                     }}
                                 >
                                     {roles.map(role => (
-                                        <option key={role} value={role} style={{ backgroundColor: '#1a1d21' }}>{role}</option>
+                                        <option key={role} value={role} style={{ backgroundColor: '#1a1d21' }}>{t(`roles.${role.toLowerCase().replace(/ /g, '_')}`)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -423,7 +425,7 @@ const UserManagementView = () => {
                                         fontWeight: 600
                                     }}
                                 >
-                                    Cancel
+                                    {t('user_management.modal.cancel')}
                                 </button>
                                 <button
                                     type="submit"
@@ -431,7 +433,7 @@ const UserManagementView = () => {
                                     disabled={loading}
                                     style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', fontWeight: 700 }}
                                 >
-                                    {loading ? 'Saving...' : modalMode === 'create' ? 'Create User' : 'Update User'}
+                                    {loading ? t('user_management.modal.saving') : modalMode === 'create' ? t('user_management.modal.save_create') : t('user_management.modal.save_edit')}
                                 </button>
                             </div>
                         </form>
@@ -457,23 +459,23 @@ const UserManagementView = () => {
                 }}>
                     <div className="card animate-fade-in-static" style={{ maxWidth: '400px', width: '90%', padding: '2rem', textAlign: 'center' }}>
                         <Trash2 size={48} color="var(--danger)" style={{ marginBottom: '1rem' }} />
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-main)' }}>Delete User?</h3>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-main)' }}>{t('user_management.delete.title')}</h3>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-                            Are you sure you want to delete <strong>{deleteConfirm.full_name}</strong>? This action cannot be undone.
+                            {t('user_management.delete.message', { name: deleteConfirm.full_name })}
                         </p>
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button
                                 onClick={() => setDeleteConfirm(null)}
                                 style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.75rem', borderRadius: '12px', fontWeight: 600 }}
                             >
-                                Cancel
+                                {t('user_management.modal.cancel')}
                             </button>
                             <button
                                 onClick={handleDelete}
                                 className="btn-primary"
                                 style={{ flex: 1, backgroundColor: 'var(--danger)', borderColor: 'var(--danger)', padding: '0.75rem', borderRadius: '12px', fontWeight: 700 }}
                             >
-                                Delete User
+                                {t('user_management.delete.confirm')}
                             </button>
                         </div>
                     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import StatCard from '../components/StatCard';
 import ReportTable from '../components/ReportTable';
 import { supabase } from '../lib/supabase';
-import { exportToCSV } from '../utils/csvExport';
+import { exportToPDF } from '../utils/pdfExport';
 import {
     Users, Car, Calendar, FileText, Clock, AlertTriangle,
     BarChart3, PieChart, TrendingUp, Download, XCircle, ChevronRight,
@@ -155,7 +155,7 @@ const ReportsView = ({ user }) => {
     };
 
     const getVehicleTypeData = () => {
-        const types = ['Car', 'Van (School)', 'Van (Private)', 'Bus', 'Motorbike', 'Truck (Vendor)'];
+        const types = ['Car', 'Van', 'Bus', 'Motorbike', 'Truck (Vendor)'];
         const counts = types.map(t => data.vehicles.filter(v => v.vehicle_type === t).length);
 
         return {
@@ -202,7 +202,7 @@ const ReportsView = ({ user }) => {
                     marginBottom: '2rem'
                 }}>
                     <div>
-                        <h2 style={{ fontSize: isMobileHeader ? '1.5rem' : '2rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.25rem' }}>Intelligence Command</h2>
+                        <h2 style={{ fontSize: isMobileHeader ? '1.5rem' : '2rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.25rem' }}>Reports and Statistics</h2>
                         <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Advanced security analytics & operational reporting.</p>
                     </div>
 
@@ -233,7 +233,7 @@ const ReportsView = ({ user }) => {
                         </select>
                         <button
                             className="btn-primary"
-                            onClick={() => {
+                            onClick={async () => {
                                 const allRecords = [
                                     ...data.visitors.map(v => ({ ...v, category: 'Visitor' })),
                                     ...data.vehicles.map(v => ({ ...v, category: 'Vehicle', name: v.driver_name || v.vehicle_number })),
@@ -253,12 +253,21 @@ const ReportsView = ({ user }) => {
                                 ];
 
                                 const filename = `OVERALL_AUDIT_${dateRange}_${new Date().toISOString().split('T')[0]}`;
-                                exportToCSV(allRecords, columns, filename);
+                                await exportToPDF({
+                                    title: 'Overall Audit Report',
+                                    data: allRecords,
+                                    columns: columns,
+                                    filename: filename,
+                                    metadata: {
+                                        generatedBy: user?.email || 'Admin',
+                                        range: dateRange
+                                    }
+                                });
                                 logAudit('Export Report', null, null, user?.email || 'Admin', { report_type: 'Overall Audit', range: dateRange });
                             }}
                             style={{ padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}
                         >
-                            <Download size={18} /> OVERALL AUDIT CSV
+                            <Download size={18} /> OVERALL AUDIT PDF
                         </button>
                     </div>
                 </div>
@@ -277,7 +286,7 @@ const ReportsView = ({ user }) => {
                     boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
                     scrollbarWidth: 'none'
                 }}>
-                    {['Overview', 'Visitor Logs', 'Vehicle Logs', 'Security Risk', 'Insights'].map(tab => (
+                    {['Overview', 'Visitor Logs', 'Vehicle Logs', 'Security Risk'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -337,7 +346,7 @@ const ReportsView = ({ user }) => {
                     {activeTab === 'Visitor Logs' && (
                         <div className="space-y-8">
                             <ReportTable
-                                title="Detailed Visitor Intelligence"
+                                title="Detailed Visitor Log"
                                 description="Complete log of all visitors with security officer attribution."
                                 data={data.visitors}
                                 columns={[
@@ -428,35 +437,6 @@ const ReportsView = ({ user }) => {
                         </div>
                     )}
 
-                    {activeTab === 'Insights' && (
-                        <div className="space-y-8">
-                            <ReportTable
-                                title="Visitor–Vehicle Correlation"
-                                description="End-to-end traceability of guests and their transit."
-                                data={data.vehicles.filter(v => v.visitor_id)}
-                                columns={[
-                                    { header: 'Vehicle', key: 'vehicle_number' },
-                                    { header: 'Driver', key: 'driver_name' },
-                                    {
-                                        header: 'Linked Visitor', key: 'visitor_id', render: (id) => {
-                                            const visitor = data.visitors.find(v => v.id === id);
-                                            return visitor ? visitor.name : 'Unknown';
-                                        }
-                                    }
-                                ]}
-                            />
-
-                            <div className="card" style={{ padding: '2rem' }}>
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '2rem' }}>
-                                    <Clock style={{ color: 'var(--primary)' }} />
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>Peak Traffic Analysis</h3>
-                                </div>
-                                <div style={{ height: '300px' }}>
-                                    <BarChartJS data={getVisitorTrendData()} options={chartOptions} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

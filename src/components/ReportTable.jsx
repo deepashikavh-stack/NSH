@@ -1,10 +1,16 @@
 import React from 'react';
 import { Download, FileText } from 'lucide-react';
-import { exportToCSV } from '../utils/csvExport';
+import { exportToPDF } from '../utils/pdfExport';
 
 const ReportTable = ({ title, description, data, columns, onExport }) => {
-    const handleCSVExport = () => {
-        exportToCSV(data, columns, `${title.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}`);
+    const handlePDFExport = () => {
+        exportToPDF({
+            title: title,
+            data: data,
+            columns: columns,
+            filename: `${title.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}`,
+            metadata: { generatedBy: 'System Report' }
+        });
     };
 
     return (
@@ -16,7 +22,7 @@ const ReportTable = ({ title, description, data, columns, onExport }) => {
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button
-                        onClick={handleCSVExport}
+                        onClick={handlePDFExport}
                         style={{
                             padding: '0.625rem 1.25rem',
                             backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -30,7 +36,7 @@ const ReportTable = ({ title, description, data, columns, onExport }) => {
                             fontWeight: 700
                         }}
                     >
-                        <Download size={16} /> EXPORT CSV
+                        <Download size={16} /> EXPORT PDF
                     </button>
                 </div>
             </div>

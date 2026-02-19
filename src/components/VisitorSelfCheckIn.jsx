@@ -1,10 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, FileText, CheckCircle, XCircle, Search, ArrowRight, Loader, Calendar, Clock } from 'lucide-react';
+import { User, FileText, CheckCircle, XCircle, Search, ArrowRight, Loader, Calendar, Clock, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { sendTelegramNotification } from '../lib/telegram';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import LanguageSwitcher from './LanguageSwitcher';
+
+const COMPANIES = [
+    { name: "Lyceum Global Holdings (Private) Limited", code: "LGH" },
+    { name: "General Secretariat (LGH)", code: "LGH-GNS" },
+    { name: "Internal Audit (LGH)", code: "LGH-IAU" },
+    { name: "Information Management & Information Security (LGH)", code: "LGH-IMS" },
+    { name: "Legal And Compliance (LGH)", code: "LGH-LGL" },
+    { name: "Ledgerwall (Private) Limited", code: "LDW" },
+    { name: "Ledgerwall Business Solutions (Private) Limited", code: "LBS" },
+    { name: "Nextgen Human Capital Solutions (Private) Limited", code: "GHC" },
+    { name: "Bitrock (Private) Limited", code: "BTR" },
+    { name: "Medivex Biotech (Private) Limited", code: "MVB" },
+    { name: "Lyceum Education Holdings (Private) Limited", code: "LED" },
+    { name: "Lyceum International School (Private) Limited", code: "LIS" },
+    { name: "Lyceum Leaf School (Private) Limited", code: "LLS" },
+    { name: "Lyceum Day Care (Private) Limited", code: "LDC" },
+    { name: "The Lyceum Campus (Private) Limited", code: "LYC" },
+    { name: "Lyceum Placements (Private) Limited", code: "LPL" },
+    { name: "Lyceum Assessments (Private) Limited", code: "LYA" },
+    { name: "The Lyceum Academy (Private) Limited", code: "LAC" },
+    { name: "Nextgen Publications (Private) Limited", code: "GPU" },
+    { name: "Journey By Design (Private) Limited", code: "JBD" },
+    { name: "NCG Read Holdings (Private) Limited", code: "NRH" },
+    { name: "The Book Studio (Private) Limited", code: "BKS" },
+    { name: "Nextgen Library Solutions (Private) Limited", code: "GLS" },
+    { name: "NCG Tech Holdings (Private) Limited", code: "NTH" },
+    { name: "Zuse Technologies (Private) Limited", code: "ZTE" },
+    { name: "Dream Team Media (Private) Limited", code: "DTM" },
+    { name: "Dream Team Events (Private) Limited", code: "DTE" },
+    { name: "EventiQ (Private) Limited", code: "EIQ" },
+    { name: "NCG Kit Holdings (Private) Limited", code: "NKH" },
+    { name: "Lyceum Collection (Private) Limited", code: "TLC" },
+    { name: "The Uniform Hub (Private) Limited", code: "TUH" },
+    { name: "NCG Build Holdings (Private) Limited", code: "NBH" },
+    { name: "NCG Serengeti Property Management (Private) Limited", code: "NSM" },
+    { name: "NCG Warehouse Solutions (Private) Limited", code: "NWS" },
+    { name: "Nextgen Facility Management (Private) Limited", code: "GFM" },
+    { name: "N C G Facility Management (Private) Limited", code: "NFA" },
+    { name: "Vebuild Innovations By NCG (Private) Limited", code: "VEB" },
+    { name: "Nextgen Shield (Private) Limited", code: "GSH" },
+    { name: "N C G Green Energy (Private) Limited", code: "NGN" },
+    { name: "N C G Holdings (Private) Limited", code: "NCG" },
+    { name: "NCG Speed Holdings (Private) Limited", code: "NSH" },
+    { name: "N C G Automotive Solutions (Private) Limited", code: "NAS" },
+    { name: "N C G Express (Private) Limited", code: "NEX" },
+    { name: "NCG Fleet Management (Private) Limited", code: "NFM" },
+    { name: "N C G Mining (Private) Limited", code: "NMG" },
+    { name: "N C G Spares (Private) Limited", code: "NSP" },
+    { name: "NCG Maxload (Private) Limited", code: "NML" },
+    { name: "Heracle Holdings (Private) Limited", code: "HCH" },
+    { name: "L Y F E Kitchen (Private) Limited", code: "LFK" },
+    { name: "Zeus Gymnasium And Rehabilitation (Private) Limited", code: "ZEG" },
+    { name: "Heracle Sports Education (Private) Limited", code: "HCS" },
+    { name: "Heracle Nutrition (Private) Limited", code: "HCN" },
+    { name: "Heracle Earth (Private) Limited", code: "HCE" },
+    { name: "Heracle Care and Wellness (Private) Limited", code: "HCA" },
+    { name: "Heracle Sports Cafe (Private) Limited", code: "HCC" },
+    { name: "Heracle Fresh (Private) Limited", code: "HCF" },
+    { name: "Heracle Active (Private) Limited", code: "HAC" },
+    { name: "Heracle Adventure (Private) Limited", code: "HAD" },
+    { name: "Leaf & Bean (Private) Limited", code: "LFB" },
+    { name: "Heracle Nursing (Private) Limited", code: "HNU" }
+];
+
+const BRANCH_REQUIRED_COMPANIES = [
+    "Lyceum International School (Private) Limited",
+    "Lyceum Leaf School (Private) Limited",
+    "Lyceum Day Care (Private) Limited",
+    "Ledgerwall (Private) Limited",
+    "Nextgen Human Capital Solutions (Private) Limited",
+    "Zuse Technologies (Private) Limited",
+    "Dream Team Media (Private) Limited"
+];
 
 const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
     const { t } = useTranslation();
@@ -22,6 +95,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
         visitors: [{ name: '', nic: '', contact: '' }], // Support multiple visitors
         purpose: '',
         sbu: '',
+        branch: '',
         meetingWith: '', // Derived from schedule
         scheduledMeetingId: null
     });
@@ -69,9 +143,6 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                 setApprovalStatus('scheduled');
                             } else if (newStatus === 'Denied' || newStatus === 'Rejected' || newStatus === 'Cancelled') {
                                 setApprovalStatus('denied');
-                                setTimeout(() => {
-                                    navigate('/');
-                                }, 4000);
                             }
                         }
                     }
@@ -122,7 +193,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
     }, [typeFromUrl]);
 
     const handleTypeSelect = (type) => {
-        setFormData({ ...formData, visitorType: type, isScheduled: false, visitors: [{ name: '', nic: '', contact: '' }], purpose: '', sbu: '' });
+        setFormData({ ...formData, visitorType: type, isScheduled: false, visitors: [{ name: '', nic: '', contact: '' }], purpose: '', sbu: '', branch: '' });
         setStep(2);
     };
 
@@ -143,40 +214,53 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                 .in('status', ['Scheduled', 'Confirmed'])
                 .single();
 
-            if (error && error.code !== 'PGRST116') { // PGRST116 is 'no rows returned'
+            if (error && error.code !== 'PGRST116') {
                 throw error;
             }
 
             if (data) {
-                setScheduleMatch(data);
-                setFormData(prev => {
-                    const newVisitors = [...prev.visitors];
-                    newVisitors[0] = { name: data.visitor_name, nic: data.visitor_nic, contact: data.visitor_contact };
-                    return {
-                        ...prev,
-                        visitors: newVisitors,
+                // INSTANT CHECK-IN LOGIC
+                // Insert visitor entry
+                const { error: insertError } = await supabase
+                    .from('visitors')
+                    .insert({
+                        name: data.visitor_name,
+                        nic_passport: data.visitor_nic,
+                        contact: data.visitor_contact,
+                        type: formData.visitorType,
                         purpose: data.purpose,
-                        meetingWith: data.meeting_with,
-                        scheduledMeetingId: data.id
-                    };
+                        meeting_with: data.meeting_with,
+                        sbu: data.sbu || formData.sbu,
+                        branch: data.branch || formData.branch,
+                        status: 'Checked-in',
+                        validation_method: 'Auto',
+                        is_pre_registered: true,
+                        source_tag: data.request_source === 'webpage' ? 'pre-scheduled-via web page' : null
+                    });
+
+                if (insertError) throw new Error("Failed to check-in visitor.");
+
+                // Update meeting status
+                const { error: updateError } = await supabase
+                    .from('scheduled_meetings')
+                    .update({ status: 'Checked-in' })
+                    .eq('id', data.id);
+
+                if (updateError) throw new Error("Failed to update meeting status.");
+
+                // Set success state
+                setSubmittedData({
+                    visitors: [{ name: data.visitor_name }],
+                    meetingWith: data.meeting_with
                 });
+                setApprovalStatus('approved');
+
             } else {
                 setError("No scheduled meeting found for today with this ID. Please proceed as a walk-in or contact security.");
-                setFormData(prev => {
-                    const newVisitors = [...prev.visitors];
-                    newVisitors[0] = { ...newVisitors[0], name: '', contact: '' };
-                    return {
-                        ...prev,
-                        visitors: newVisitors,
-                        purpose: '',
-                        meetingWith: '',
-                        scheduledMeetingId: null
-                    };
-                });
             }
         } catch (err) {
             console.error(err);
-            setError("Error verifying schedule. Please try again.");
+            setError("Error processing check-in. Please try again or contact security.");
         } finally {
             setVerifying(false);
         }
@@ -209,104 +293,67 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            if (scheduleMatch) {
-                // Case 1: PRE-SCHEDULED CHECK-IN
-                const insertPromises = formData.visitors.map(visitor => {
-                    if (!visitor.name || !visitor.nic) return null;
-                    return supabase
-                        .from('visitors')
-                        .insert({
-                            name: visitor.name,
-                            nic_passport: visitor.nic,
-                            contact: visitor.contact,
-                            type: formData.visitorType,
-                            purpose: (formData.visitorType === 'Lyceum' && formData.sbu ? `${formData.purpose} - ${formData.sbu}` : formData.purpose),
-                            meeting_with: formData.meetingWith || scheduleMatch.meeting_with,
-                            status: 'Checked-in',
-                            validation_method: 'Auto',
-                            is_pre_registered: true
-                        })
-                        .select()
-                        .single();
-                }).filter(p => p !== null);
+            // Case 2: WALK-IN MEETING REQUEST (PURE SCHEDULING)
+            // Note: Case 1 is now handled by handleVerifySchedule directly
+            const approvalToken = crypto.randomUUID();
 
-                const results = await Promise.all(insertPromises);
-                const errors = results.filter(r => r.error);
-                if (errors.length > 0) throw new Error("Failed to create visitor entry.");
+            // Only create ONE meeting request for the group (or multiple if system expects separate)
+            // We'll create one for the primary visitor for now as per system behavior
+            const primaryVisitor = formData.visitors[0];
 
-                // Update meeting status
-                await supabase
-                    .from('scheduled_meetings')
-                    .update({ status: 'Checked-in' })
-                    .eq('id', scheduleMatch.id);
+            const { data: meeting, error: insertError } = await supabase
+                .from('scheduled_meetings')
+                .insert({
+                    visitor_name: primaryVisitor.name,
+                    visitor_nic: primaryVisitor.nic,
+                    visitor_contact: primaryVisitor.contact,
+                    visitor_category: 'On-arrival',
+                    meeting_with: formData.meetingWith || 'To be assigned',
+                    purpose: formData.purpose,
+                    sbu: formData.sbu,
+                    branch: formData.branch,
+                    meeting_date: new Date().toISOString().split('T')[0],
+                    start_time: '10:00', // Placeholders
+                    end_time: '11:00',
+                    status: 'Meeting Requested',
+                    approval_token: approvalToken
+                })
+                .select()
+                .single();
 
-                setSubmittedData(formData);
-                setApprovalStatus('approved');
-                setTimeout(() => {
-                    if (onSuccess) onSuccess();
-                    else navigate('/');
-                }, 2000);
+            if (insertError) throw insertError;
 
-            } else {
-                // Case 2: WALK-IN MEETING REQUEST (PURE SCHEDULING)
-                const approvalToken = crypto.randomUUID();
+            setVisitorId(meeting.id);
+            setSubmittedData(formData);
+            setApprovalStatus('pending');
 
-                // Only create ONE meeting request for the group (or multiple if system expects separate)
-                // We'll create one for the primary visitor for now as per system behavior
-                const primaryVisitor = formData.visitors[0];
+            // Trigger Telegram Notification
+            const visitorNames = formData.visitors.map(v => v.name).join(', ');
+            console.log("Triggering Telegram for:", visitorNames);
+            try {
+                const telegramData = await sendTelegramNotification(
+                    visitorNames,
+                    formData.purpose,
+                    formData.meetingWith,
+                    meeting.id,
+                    approvalToken,
+                    primaryVisitor.contact
+                );
 
-                const { data: meeting, error: insertError } = await supabase
-                    .from('scheduled_meetings')
-                    .insert({
-                        visitor_name: primaryVisitor.name,
-                        visitor_nic: primaryVisitor.nic,
-                        visitor_contact: primaryVisitor.contact,
-                        visitor_category: 'On-arrival',
-                        meeting_with: formData.meetingWith || 'To be assigned',
-                        purpose: formData.purpose,
-                        meeting_date: new Date().toISOString().split('T')[0],
-                        start_time: '10:00', // Placeholders
-                        end_time: '11:00',
-                        status: 'Meeting Requested',
-                        approval_token: approvalToken
-                    })
-                    .select()
-                    .single();
-
-                if (insertError) throw insertError;
-
-                setVisitorId(meeting.id);
-                setSubmittedData(formData);
-                setApprovalStatus('pending');
-
-                // Trigger Telegram Notification
-                const visitorNames = formData.visitors.map(v => v.name).join(', ');
-                console.log("Triggering Telegram for:", visitorNames);
-                try {
-                    const telegramData = await sendTelegramNotification(
-                        visitorNames,
-                        formData.purpose,
-                        formData.meetingWith,
-                        meeting.id,
-                        approvalToken,
-                        primaryVisitor.contact
-                    );
-
-                    if (telegramData?.message_id) {
-                        console.log("Telegram success:", telegramData);
-                        await supabase.from('scheduled_meetings').update({
-                            telegram_message_id: telegramData.message_id.toString(),
-                            telegram_chat_id: telegramData.chat_id.toString()
-                        }).eq('id', meeting.id);
-                    } else {
-                        console.error("Telegram notification returned null or failed.");
-                        // Optional: alert("Note: Telegram notification could not be sent. Please check your connection or bot settings.");
-                    }
-                } catch (tgErr) {
-                    console.error("Telegram error catch:", tgErr);
-                    alert("Telegram Error: " + tgErr.message);
+                if (telegramData?.message_id) {
+                    console.log("Telegram success:", telegramData);
+                    await supabase.from('scheduled_meetings').update({
+                        telegram_message_id: telegramData.message_id.toString(),
+                        telegram_chat_id: telegramData.chat_id.toString()
+                    }).eq('id', meeting.id);
+                } else {
+                    console.error("Telegram notification returned null or failed.");
                 }
+            } catch (tgErr) {
+                console.error("Telegram error catch:", tgErr);
+                alert("Telegram Error: " + tgErr.message);
             }
+
         } catch (error) {
             console.error(error);
             alert("An error occurred: " + error.message);
@@ -491,10 +538,32 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     </div>
                     <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#10B981', marginBottom: '1rem' }}>{t('kiosk.granted_title')}</h2>
                     <p style={{ color: '#94a3b8', fontSize: '1.125rem', marginBottom: '2rem' }}>
-                        {t('kiosk.granted_msg_prefix', { defaultValue: 'Welcome,' })} <strong>{submittedData?.visitors?.[0]?.name || t('common.visitor')}</strong>!
+                        <strong>{submittedData?.visitors?.[0]?.name}</strong> scheduled appointment with <strong>{submittedData?.meetingWith}</strong>
                         <br />
-                        <span style={{ fontSize: '0.9rem', color: '#64748b' }}>{t('kiosk.granted_msg')}</span>
+                        <span style={{ fontSize: '0.9rem', color: '#64748b', marginTop: '1rem', display: 'block' }}>{t('kiosk.granted_msg')}</span>
                     </p>
+                    <div style={{ marginTop: '2rem' }}>
+                        <button
+                            onClick={() => navigate('/')}
+                            style={{
+                                padding: '1rem 2rem',
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                color: '#fff',
+                                borderRadius: '12px',
+                                fontWeight: 700,
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                        >
+                            <ArrowRight size={18} transform="rotate(180)" /> {t('common.back_to_home', 'Back to Home')}
+                        </button>
+                    </div>
                 </div >
             </FullScreenContainer >
         );
@@ -527,7 +596,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
 
             <div style={{
                 width: '100%',
-                maxWidth: '550px',
+                maxWidth: '850px',
                 padding: '1rem',
                 display: 'flex',
                 flexDirection: 'column',
@@ -569,19 +638,19 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     backdropFilter: 'blur(25px)',
                     WebkitBackdropFilter: 'blur(25px)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '32px',
-                    padding: '5rem 3rem 3rem 3rem',
+                    borderRadius: '24px',
+                    padding: '4.5rem 1.5rem 1.5rem 1.5rem',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '2.5rem'
+                    gap: '1rem'
                 }}>
                     <div style={{ textAlign: 'center' }}>
                         <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
                             {step === 1 ? t('kiosk.title') : t('kiosk.identity')}
                         </h2>
                         <p style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                            {step === 1 ? t('kiosk.subtitle') : `${t(`kiosk.${formData.visitorType.toLowerCase()}`)} Entry Portal`}
+                            {step === 1 ? t('kiosk.subtitle') : `${t(`kiosk.${formData.visitorType.toLowerCase()}`)} ${t('kiosk.entry_portal_suffix')}`}
                         </p>
                     </div>
 
@@ -653,6 +722,17 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                 <span style={{ color: '#fff', fontSize: '0.875rem', fontWeight: 600 }}>{t('kiosk.scheduled_toggle')}</span>
                             </div>
 
+                            <p className="animate-fade-in" style={{
+                                color: 'rgba(255,255,255,0.6)',
+                                fontSize: '0.9rem',
+                                marginTop: '-0.5rem',
+                                textAlign: 'center',
+                                width: '100%',
+                                display: 'block'
+                            }}>
+                                {t('kiosk.request_msg')}
+                            </p>
+
                             {/* Verification Section */}
                             {formData.isScheduled && (
                                 <div style={{
@@ -668,9 +748,9 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                         <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                         <input
                                             type="text"
-                                            placeholder={t('kiosk.nic_placeholder')}
-                                            value={formData.nicPassport}
-                                            onChange={(e) => setFormData({ ...formData, nicPassport: e.target.value })}
+                                            placeholder={formData.visitorType === 'Lyceum' ? t('kiosk.emp_code_placeholder') : t('kiosk.nic_placeholder')}
+                                            value={formData.visitors[0].nic}
+                                            onChange={(e) => updateVisitor(0, 'nic', e.target.value)}
                                             style={{
                                                 width: '100%',
                                                 padding: '1rem 1rem 1rem 3rem',
@@ -689,23 +769,21 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                         onClick={handleVerifySchedule}
                                         disabled={verifying}
                                         style={{
-                                            padding: '1rem',
-                                            backgroundColor: 'var(--primary)',
+                                            padding: '1rem 3rem',
+                                            background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
                                             color: '#fff',
                                             borderRadius: '12px',
                                             fontWeight: 800,
                                             border: 'none',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            width: 'fit-content',
+                                            alignSelf: 'center',
+                                            boxShadow: '0 8px 16px rgba(0,0,0,0.15)'
                                         }}
                                     >
                                         {verifying ? <Loader className="animate-spin" size={18} /> : t('kiosk.verify_button')}
                                     </button>
                                     {error && <p style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}>{error}</p>}
-                                    {scheduleMatch && (
-                                        <p style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
-                                            ✓ Match Found: {scheduleMatch.visitor_name}
-                                        </p>
-                                    )}
                                 </div>
                             )}
 
@@ -715,18 +793,19 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                         {formData.visitors.map((visitor, index) => (
                                             <div key={index} style={{
-                                                padding: '1.25rem',
+                                                padding: '1rem',
                                                 backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                                                borderRadius: '20px',
+                                                borderRadius: '16px',
                                                 border: '1px solid rgba(255, 255, 255, 0.05)',
-                                                display: 'flex',
-                                                flexDirection: 'column',
+                                                display: 'grid',
+                                                gridTemplateColumns: '1fr 1fr 1fr',
                                                 gap: '1rem',
-                                                position: 'relative'
+                                                position: 'relative',
+                                                alignItems: 'flex-start'
                                             }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '-0.5rem' }}>
                                                     <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
-                                                        Visitor {index + 1}
+                                                        {t('kiosk.visitor_label', { count: index + 1 })}
                                                     </span>
                                                     {index > 0 && (
                                                         <button
@@ -745,7 +824,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                                         type="text"
                                                         required
                                                         readOnly={formData.isScheduled && index === 0}
-                                                        placeholder={t('kiosk.nic_placeholder')}
+                                                        placeholder={formData.visitorType === 'Lyceum' ? t('kiosk.emp_code_placeholder') : t('kiosk.nic_placeholder')}
                                                         value={visitor.nic}
                                                         onChange={(e) => updateVisitor(index, 'nic', e.target.value)}
                                                         style={{
@@ -788,7 +867,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                                 {/* Contact Number Field */}
                                                 <div style={{ position: 'relative' }}>
                                                     <div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-                                                        <span style={{ fontSize: '12px', fontWeight: 800 }}>TEL</span>
+                                                        <span style={{ fontSize: '12px', fontWeight: 800 }}>{t('kiosk.tel_label')}</span>
                                                     </div>
                                                     <input
                                                         type="tel"
@@ -813,126 +892,164 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                         ))}
 
                                         {(!formData.isScheduled || scheduleMatch) && (
-                                            <button
-                                                type="button" // Changed from submit to button as per original
-                                                onClick={addVisitor} // Added onClick as per original
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '1.25rem',
-                                                    backgroundColor: 'var(--primary)',
-                                                    color: '#fff',
-                                                    borderRadius: '16px',
-                                                    fontWeight: 800,
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '0.5rem',
-                                                    boxShadow: '0 10px 20px -5px rgba(37, 99, 235, 0.4)'
-                                                }}
-                                            >
-                                                {loading ? <Loader className="animate-spin" size={20} /> : (
-                                                    <>
-                                                        {t('kiosk.add_visitor_button')} <ArrowRight size={20} />
-                                                    </>
-                                                )}
-                                            </button>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={addVisitor}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.75rem',
+                                                        backgroundColor: 'rgba(251, 146, 60, 0.9)',
+                                                        color: '#fff',
+                                                        borderRadius: '12px',
+                                                        fontWeight: 700,
+                                                        fontSize: '0.9rem',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '0.5rem',
+                                                        boxShadow: '0 4px 12px rgba(251, 146, 60, 0.3)'
+                                                    }}
+                                                >
+                                                    {loading ? <Loader className="animate-spin" size={16} /> : (
+                                                        <>
+                                                            {t('kiosk.add_visitor_button')} <ArrowRight size={16} />
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
 
-                                    {formData.visitorType === 'Lyceum' && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: formData.visitorType === 'Lyceum' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1rem' }}>
+                                        {formData.visitorType === 'Lyceum' && (
+                                            <div style={{ position: 'relative' }}>
+                                                <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                <select
+                                                    required
+                                                    value={formData.sbu}
+                                                    onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.875rem 1rem 0.875rem 2.75rem',
+                                                        backgroundColor: '#fff',
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        color: '#1e293b',
+                                                        fontWeight: 600,
+                                                        fontSize: '0.9375rem',
+                                                        outline: 'none',
+                                                        appearance: 'none',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <option value="" disabled>{t('kiosk.sbu_placeholder')}</option>
+                                                    {COMPANIES.map(comp => (
+                                                        <option key={comp.code} value={comp.name}>
+                                                            {comp.name} ({comp.code})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {BRANCH_REQUIRED_COMPANIES.includes(formData.sbu) && (
+                                            <div style={{ position: 'relative' }}>
+                                                <MapPin size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    placeholder={t('kiosk.branch_placeholder')}
+                                                    value={formData.branch}
+                                                    onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.875rem 1rem 0.875rem 2.75rem',
+                                                        backgroundColor: '#fff',
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        color: '#1e293b',
+                                                        fontWeight: 600,
+                                                        fontSize: '0.9375rem',
+                                                        outline: 'none'
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+
                                         <div style={{ position: 'relative' }}>
-                                            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                            <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                                             <input
                                                 type="text"
                                                 required
-                                                placeholder="SBU / Branch"
-                                                value={formData.sbu}
-                                                onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
+                                                readOnly={!!scheduleMatch}
+                                                placeholder={t('kiosk.host_placeholder')}
+                                                value={formData.meetingWith || (scheduleMatch ? scheduleMatch.meeting_with : '')}
+                                                onChange={(e) => setFormData({ ...formData, meetingWith: e.target.value })}
                                                 style={{
                                                     width: '100%',
-                                                    padding: '1rem 1rem 1rem 3rem',
+                                                    padding: '0.875rem 1rem 0.875rem 2.75rem',
                                                     backgroundColor: '#fff',
                                                     borderRadius: '12px',
                                                     border: 'none',
                                                     color: '#1e293b',
                                                     fontWeight: 600,
-                                                    fontSize: '1rem',
+                                                    fontSize: '0.9375rem',
                                                     outline: 'none'
                                                 }}
                                             />
                                         </div>
-                                    )}
 
-                                    <div style={{ position: 'relative' }}>
-                                        <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                        <input
-                                            type="text"
-                                            required
-                                            readOnly={!!scheduleMatch}
-                                            placeholder={t('kiosk.host_placeholder')}
-                                            value={formData.meetingWith || (scheduleMatch ? scheduleMatch.meeting_with : '')}
-                                            onChange={(e) => setFormData({ ...formData, meetingWith: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: '1rem 1rem 1rem 3rem',
-                                                backgroundColor: '#fff',
-                                                borderRadius: '12px',
-                                                border: 'none',
-                                                color: '#1e293b',
-                                                fontWeight: 600,
-                                                fontSize: '1rem',
-                                                outline: 'none'
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div style={{ position: 'relative' }}>
-                                        <FileText size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                        <input
-                                            type="text"
-                                            required
-                                            readOnly={!!scheduleMatch}
-                                            placeholder={t('kiosk.purpose_placeholder')}
-                                            value={formData.purpose}
-                                            onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: '1rem 1rem 1rem 3rem',
-                                                backgroundColor: '#fff',
-                                                borderRadius: '12px',
-                                                border: 'none',
-                                                color: '#1e293b',
-                                                fontWeight: 600,
-                                                fontSize: '1rem',
-                                                outline: 'none'
-                                            }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <FileText size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                            <input
+                                                type="text"
+                                                required
+                                                readOnly={!!scheduleMatch}
+                                                placeholder={t('kiosk.purpose_placeholder')}
+                                                value={formData.purpose}
+                                                onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.875rem 1rem 0.875rem 2.75rem',
+                                                    backgroundColor: '#fff',
+                                                    borderRadius: '12px',
+                                                    border: 'none',
+                                                    color: '#1e293b',
+                                                    fontWeight: 600,
+                                                    fontSize: '0.9375rem',
+                                                    outline: 'none'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
 
                                     <button
                                         type="submit"
                                         disabled={loading}
                                         style={{
-                                            width: '100%',
-                                            padding: '1.25rem',
-                                            background: formData.isScheduled ? 'var(--primary)' : 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                            width: 'fit-content',
+                                            minWidth: '240px',
+                                            padding: '0.875rem 2rem',
+                                            background: formData.isScheduled ? 'var(--primary)' : 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)', // Lighter orange gradient
                                             color: '#fff',
                                             borderRadius: '14px',
-                                            fontSize: '1.125rem',
-                                            fontWeight: 800,
+                                            fontSize: '1rem',
+                                            fontWeight: 700,
                                             border: 'none',
                                             cursor: 'pointer',
-                                            marginTop: '1rem',
-                                            boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+                                            marginTop: '0.5rem',
+                                            boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
                                             display: 'flex',
                                             justifyContent: 'center',
                                             alignItems: 'center',
-                                            gap: '0.75rem'
+                                            gap: '0.75rem',
+                                            alignSelf: 'center'
                                         }}
                                     >
-                                        {loading ? <Loader className="animate-spin" size={24} /> : (formData.isScheduled ? 'SUBMIT' : 'SCHEDULE A MEETING')}
+                                        {loading ? <Loader className="animate-spin" size={20} /> : (formData.isScheduled ? t('common.submit') : t('kiosk.schedule_button'))}
                                     </button>
                                 </div>
                             )}
@@ -947,13 +1064,13 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                 color: 'rgba(255,255,255,0.4)'
                             }}>
                                 <span onClick={() => step === 2 && !typeFromUrl && setStep(1)} style={{ cursor: step === 2 && !typeFromUrl ? 'pointer' : 'default' }}>
-                                    {step === 2 && !typeFromUrl ? 'Change Profile' : ''}
+                                    {step === 2 && !typeFromUrl ? t('kiosk.change_profile') : ''}
                                 </span>
                                 <span
                                     onClick={() => onClose ? onClose() : navigate('/')}
                                     style={{ cursor: 'pointer', color: 'rgba(239, 68, 68, 0.6)' }}
                                 >
-                                    Cancel Entry
+                                    {t('kiosk.cancel_entry')}
                                 </span>
                             </div>
                         </form>

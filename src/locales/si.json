@@ -18,10 +18,11 @@
         "visitor_registry": "අමුත්තන්ගේ ලේඛනය",
         "vehicle_access": "වාහන ප්‍රවේශය",
         "security_analytics": "ආරක්ෂක විශ්ලේෂණ",
-        "account_configuration": "ගිණුම් වින්‍යාසය",
+        "account_configuration": "ගිණුම් වින්යාසය",
         "overview": "සමාලෝචනය",
         "visitor": "අමුත්තා",
-        "back_to_home": "නැවත මුල් පිටුවට"
+        "back_to_home": "නැවත මුල් පිටුවට",
+        "status": "තත්ත්වය"
     },
     "kiosk": {
         "title": "අමුත්තන් පැමිණීමේ ලියාපදිංචිය",
@@ -31,13 +32,13 @@
         "other": "අමුත්තන් / වෙනත්",
         "identity": "අන්‍යතාවය තහවුරු කිරීම",
         "scheduled_toggle": "මට කලින් වෙන් කරගත් හමුවීමක් ඇත",
-        "nic_placeholder": "ජාතික හැඳුනුම්පත් / විදේශ ගමන් බලපත්‍ර අංකය",
+        "nic_placeholder": "ID No. / Passport Number",
         "name_placeholder": "නම",
         "contact_placeholder": "දුරකථන අංකය",
         "host_placeholder": "හමුවිය යුතු පුද්ගලයා",
         "purpose_placeholder": "පැමිණීමේ අරමුණ",
-        "verify_button": "හමුවීම තහවුරු කරන්න",
-        "schedule_button": "හමුවීමක් වෙන් කරන්න",
+        "verify_button": "ඇතුළු වන්න",
+        "schedule_button": "හමුවීමක් ඉල්ලුම් කරන්න",
         "pending_title": "ප්‍රවේශය අපේක්ෂිතයි",
         "pending_msg": "ආරක්ෂක අංශ මගින් ඔබගේ පැමිණීම තහවුරු කරන තෙක් කරුණාකර රැඳී සිටින්න.",
         "denied_title": "ප්‍රවේශය ප්‍රතික්ෂේප කර ඇත",
@@ -47,7 +48,78 @@
         "granted_msg": "සාදරයෙන් පිළිගනිමු! කරුණාකර ආරක්ෂක කවුන්ටරය වෙත යන්න.",
         "add_visitor_button": "+ තවත් අමුත්තෙකු එකතු කරන්න",
         "scheduled_msg_prefix": "ඔබගේ හමුවීම සාර්ථකව වෙන් කරන ලදී,",
-        "granted_msg_prefix": "සාදරයෙන් පිළිගනිමු,"
+        "granted_msg_prefix": "සාදරයෙන් පිළිගනිමු,",
+        "request_meeting_instruction": "ඔබ හමුවීමක් වෙන් කර නොමැති නම්, හමුවීමක් ඉල්ලීමට කරුණාකර පහත පෝරමය පුරවන්න",
+        "sbu_placeholder": "SBU / ශාඛාව තෝරන්න",
+        "branch_placeholder": "ශාඛාව",
+        "emp_code_placeholder": "EMP Code",
+        "visitor_label": "අමුත්තා {{count}}",
+        "request_msg": "ඔබට හමුවීමක් වෙන්කර ගැනීමට අවශ්‍ය නම්, කරුණාකර පහත පෝරමය පුරවා ඉදිරිපත් කරන්න",
+        "cancel_entry": "ප්‍රවේශය අවලංගු කරන්න",
+        "entry_portal_suffix": "ප්‍රවේශ ද්වාරය",
+        "tel_label": "",
+        "change_profile": "පැතිකඩ වෙනස් කරන්න",
+        "user_account": "පරිශීලක ගිණුම",
+        "loading_users": "පරිශීලකයින් පූරණය වෙමින්...",
+        "no_users": "පරිශීලකයින් හමු නොවීය",
+        "user_identifier": "පරිශීලක හඳුනාගැනීම",
+        "employee_id_placeholder": "Employee ID හෝ පරිශීලක නාමය",
+        "security_key": "ආරක්ෂක මුරපදය",
+        "forgot_password": "මුරපදය අමතකද?",
+        "reset_modal": {
+            "title": "මුරපදය නැවත සකසන්න",
+            "instruction": "ඔබගේ ගිණුම නැවත සැකසීමට විද්‍යුත් තැපැල් ලිපිනය සහ නව මුරපදයක් ඇතුළත් කරන්න.",
+            "email_label": "විද්‍යුත් තැපැල් ලිපිනය",
+            "email_placeholder": "your.email@example.com",
+            "new_password": "නව මුරපදය",
+            "new_password_placeholder": "නව මුරපදය ඇතුළත් කරන්න",
+            "confirm_password": "නව මුරපදය තහවුරු කරන්න",
+            "confirm_password_placeholder": "නව මුරපදය නැවත ඇතුළත් කරන්න",
+            "cancel": "අවලංගු කරන්න",
+            "reset_btn": "මුරපදය නැවත සකසන්න",
+            "resetting": "සකසමින් පවතී..."
+        }
+    },
+    "user_management": {
+        "title": "පරිශීලක කළමනාකරණය",
+        "subtitle": "පද්ධති පරිශීලකයින් සහ ප්‍රවේශ පාලනය කළමනාකරණය කරන්න.",
+        "create_user": "නව පරිශීලකයෙකු සාදන්න",
+        "search_placeholder": "නම හෝ විද්‍යුත් තැපෑල මගින් සොයන්න...",
+        "all_roles": "සියලුම භූමිකාවන්",
+        "table": {
+            "user": "පරිශීලකයා",
+            "email": "විද්‍යුත් තැපෑල",
+            "role": "භූමිකාව",
+            "status": "තත්ත්වය",
+            "actions": "ක්‍රියාමාර්ග"
+        },
+        "status": {
+            "active": "සක්‍රියයි",
+            "inactive": "අක්‍රියයි"
+        },
+        "modal": {
+            "create_title": "නව පරිශීලකයෙකු සාදන්න",
+            "edit_title": "පරිශීලක තොරතුරු සංස්කරණය කරන්න",
+            "email": "විද්‍යුත් තැපෑල *",
+            "full_name": "සම්පූර්ණ නම *",
+            "role": "භූමිකාව *",
+            "cancel": "අවලංගු කරන්න",
+            "save_create": "පරිශීලකයා සාදන්න",
+            "save_edit": "තොරතුරු යාවත්කාලීන කරන්න",
+            "saving": "සුරැකෙමින්..."
+        },
+        "delete": {
+            "title": "පරිශීලකයා මකා දමන්නද?",
+            "message": "ඔබ <strong>{{name}}</strong> මකා දැමීමට සහතිකද? මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.",
+            "confirm": "මකා දමන්න"
+        }
+    },
+    "roles": {
+        "admin": "ප්‍රධාන පාලක (Admin)",
+        "security_officer": "ආරක්ෂක නිලධාරී (Security Officer)",
+        "security_hod": "ආරක්ෂක අංශ ප්‍රධානී (Security HOD)",
+        "school_management": "පාසල් කළමනාකාරීත්වය (School Management)",
+        "school_operations": "පාසල් මෙහෙයුම් (School Operations)"
     },
     "login": {
         "title": "පද්ධතියට ඇතුළු වන්න",

@@ -31,13 +31,13 @@
         "other": "Guest / Other",
         "identity": "Identity Verification",
         "scheduled_toggle": "I have a pre-scheduled appointment",
-        "nic_placeholder": "NIC / Passport Number",
+        "nic_placeholder": "ID No. / Passport Number",
         "name_placeholder": "Name",
         "contact_placeholder": "Contact Number",
         "host_placeholder": "Host / Meeting With",
         "purpose_placeholder": "Purpose of Visit",
-        "verify_button": "VERIFY APPOINTMENT",
-        "schedule_button": "SCHEDULE A MEETING",
+        "verify_button": "Check-in",
+        "schedule_button": "Request for an Appointment",
         "pending_title": "Pending Access",
         "pending_msg": "Please wait while security verifies your entry.",
         "denied_title": "Access Denied",
@@ -47,7 +47,37 @@
         "granted_msg": "Welcome! Please proceed to the security desk.",
         "add_visitor_button": "+ Add Another Visitor",
         "scheduled_msg_prefix": "Your meeting has been scheduled,",
-        "granted_msg_prefix": "Welcome,"
+        "granted_msg_prefix": "Welcome,",
+        "request_meeting_instruction": "If you have not scheduled a meeting, please fill the below to request a meeting",
+        "sbu_placeholder": "Select SBU / Branch",
+        "branch_placeholder": "Branch",
+        "emp_code_placeholder": "EMP Code",
+        "visitor_label": "Visitor {{count}}",
+        "request_msg": "If you want to request for an appointment, please fill the below and submit",
+        "cancel_entry": "Cancel Entry",
+        "entry_portal_suffix": "Entry Portal",
+        "tel_label": "TEL",
+        "change_profile": "Change Profile",
+        "user_account": "User Account",
+        "loading_users": "Loading accounts...",
+        "no_users": "No accounts available",
+        "user_identifier": "User Identifier",
+        "employee_id_placeholder": "Employee ID or Username",
+        "security_key": "Security Key",
+        "forgot_password": "Forgot Password?",
+        "reset_modal": {
+            "title": "Reset Password",
+            "instruction": "Enter your email address and a new password to reset your account.",
+            "email_label": "Email Address",
+            "email_placeholder": "your.email@example.com",
+            "new_password": "New Password",
+            "new_password_placeholder": "Enter new password",
+            "confirm_password": "Confirm New Password",
+            "confirm_password_placeholder": "Confirm new password",
+            "cancel": "Cancel",
+            "reset_btn": "Reset Password",
+            "resetting": "Resetting..."
+        }
     },
     "login": {
         "title": "System Login",
@@ -60,6 +90,47 @@
         "return": "RETURN",
         "loading_users": "Loading users...",
         "no_users": "No active users found"
+    },
+    "user_management": {
+        "title": "User Management",
+        "subtitle": "Manage system users and access control.",
+        "create_user": "Create User",
+        "search_placeholder": "Search by name or email...",
+        "all_roles": "All Roles",
+        "table": {
+            "user": "User",
+            "email": "Email",
+            "role": "Role",
+            "status": "Status",
+            "actions": "Actions"
+        },
+        "status": {
+            "active": "Active",
+            "inactive": "Inactive"
+        },
+        "modal": {
+            "create_title": "Create New User",
+            "edit_title": "Edit User",
+            "email": "Email Address *",
+            "full_name": "Full Name *",
+            "role": "Role *",
+            "cancel": "Cancel",
+            "save_create": "Create User",
+            "save_edit": "Update User",
+            "saving": "Saving..."
+        },
+        "delete": {
+            "title": "Delete User?",
+            "message": "Are you sure you want to delete <strong>{{name}}</strong>? This action cannot be undone.",
+            "confirm": "Delete User"
+        }
+    },
+    "roles": {
+        "admin": "Admin",
+        "security_officer": "Security Officer",
+        "security_hod": "Security HOD",
+        "school_management": "School Management",
+        "school_operations": "School Operations"
     },
     "checkout": {
         "title": "Visitor Check-Out",

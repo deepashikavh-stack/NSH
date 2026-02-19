@@ -140,7 +140,7 @@ const VisitorCheckOut = () => {
                             <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                             <input
                                 type="text"
-                                placeholder="NIC / Employee ID"
+                                placeholder="NIC / EMP Code"
                                 value={idNumber}
                                 onChange={(e) => setIdNumber(e.target.value)}
                                 style={{

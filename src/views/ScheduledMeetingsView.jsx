@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Calendar, Clock, User, FileText, Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
 import MeetingScheduler from '../components/MeetingScheduler';
 import { supabase } from '../lib/supabase';
+import { sendSMS } from '../lib/sms';
 
 const ScheduledMeetingsView = () => {
     const [meetings, setMeetings] = useState([]);
@@ -87,6 +88,13 @@ const ScheduledMeetingsView = () => {
 
             setMeetingToDelete(null);
             fetchMeetings();
+
+            // Send SMS notification for cancellation
+            if (meetingToDelete.visitor_contact) {
+                const smsMessage = `Your scheduled meeting on ${meetingToDelete.meeting_date} has been cancelled by the administration.`;
+                await sendSMS(meetingToDelete.visitor_contact, smsMessage);
+            }
+
             alert('Meeting cancelled successfully.');
         } catch (error) {
             console.error('Error deleting meeting:', error);

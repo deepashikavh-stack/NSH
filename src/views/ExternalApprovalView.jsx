@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, Calendar, User, ArrowRight, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { updateTelegramMessage } from '../lib/telegram';
+import { updateTelegramMessage, formatApprovedMessage } from '../lib/telegram';
+import { sendSMS } from '../lib/sms';
 import { logAudit } from '../lib/audit';
+import { initGoogleApi, createGoogleCalendarEvent } from '../lib/googleCalendar';
 
 const ExternalApprovalView = () => {
     const { token } = useParams();
@@ -17,6 +19,7 @@ const ExternalApprovalView = () => {
         startTime: '10:00',
         endTime: '11:00'
     });
+    const [syncToCalendar, setSyncToCalendar] = useState(true);
 
     useEffect(() => {
         fetchVisitor();
@@ -57,36 +60,64 @@ const ExternalApprovalView = () => {
                     start_time: formData.startTime,
                     end_time: formData.endTime,
                     status: 'Scheduled',
-                    approval_token_used: true
+                    approval_token_used: true,
+                    google_event_id: null // Will update if sync succeeds
                 })
                 .eq('id', visitor.id);
 
             if (meetingError) throw meetingError;
 
+            // 1b. Google Calendar Sync
+            let googleEventId = null;
+            if (syncToCalendar) {
+                try {
+                    await initGoogleApi();
+                    const event = await createGoogleCalendarEvent({
+                        visitorName: visitor.visitor_name,
+                        purpose: visitor.purpose,
+                        meetingWith: visitor.meeting_with,
+                        date: formData.date,
+                        startTime: formData.startTime,
+                        endTime: formData.endTime
+                    });
+                    googleEventId = event.id;
+
+                    // Update meeting with google_event_id
+                    await supabase
+                        .from('scheduled_meetings')
+                        .update({ google_event_id: googleEventId })
+                        .eq('id', visitor.id);
+                } catch (calendarErr) {
+                    console.error('Google Calendar Error:', calendarErr);
+                }
+            }
+
             // 2. Update Telegram Message
             const arrivalTime = visitor.created_at ? new Date(visitor.created_at).toLocaleTimeString() : 'N/A';
             const confirmationTime = new Date().toLocaleTimeString();
 
-            const newText = `
-📅 <b>Meeting Scheduled</b> (via Web Portal)
-
-👤 <b>Visitor(s):</b> ${visitor.visitor_name}
-🏢 <b>Purpose:</b> ${visitor.purpose}
-🤝 <b>Meeting With:</b> ${visitor.meeting_with || 'Not Specified'}
-⏰ <b>Request Received:</b> ${arrivalTime}
-
-🔐 <b>Confirmed via Secure Portal</b>
-⏰ <b>Scheduled At:</b> ${confirmationTime}
-
-🕒 <b>Assigned Slot:</b> ${formData.startTime} - ${formData.endTime}
-📅 <b>Date:</b> ${formData.date}
-
-📍 <b>Next Step:</b> Visitor is now guided to perform a formal check-in at the kiosk.
-            `.trim();
+            const newText = formatApprovedMessage({
+                visitorNames: visitor.visitor_name,
+                purpose: visitor.purpose,
+                meetingWith: visitor.meeting_with,
+                requestReceived: arrivalTime,
+                approvedBy: 'External Approver',
+                approvedAt: confirmationTime,
+                startTime: formData.startTime,
+                endTime: formData.endTime,
+                date: formData.date,
+                sourceTag: '(via Web Portal)'
+            });
 
             await updateTelegramMessage(visitor.telegram_chat_id, visitor.telegram_message_id, newText);
 
-            // 3. Log Audit
+            // 3. Send SMS to Visitor
+            if (visitor.visitor_contact) {
+                const smsMessage = `Your meeting with ${visitor.meeting_with || 'Lyceum Staff'} has been scheduled for ${formData.date} at ${formData.startTime}. Please show this message at the security point. (scheduled through the web page)`;
+                await sendSMS(visitor.visitor_contact, smsMessage);
+            }
+
+            // 4. Log Audit
             logAudit('Web-Based Approval', 'scheduled_meetings', visitor.id, 'External Approver', {
                 start: formData.startTime,
                 end: formData.endTime,
@@ -137,8 +168,7 @@ const ExternalApprovalView = () => {
                 </div>
                 <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#F59E0B', marginBottom: '1rem' }}>Meeting Scheduled</h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '1.125rem' }}>
-                    <strong>{visitor.name}</strong> can now check-in.
-                    <br />The visitor at the kiosk has been notified.
+                    The visitor has been notified.
                 </p>
             </div>
         );
@@ -222,6 +252,32 @@ const ExternalApprovalView = () => {
                     <div style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         <p>Contact: {visitor.visitor_contact || 'N/A'}</p>
                         <p>Purpose: {visitor.purpose}</p>
+                    </div>
+                </div>
+
+                {/* Google Calendar Embed */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Calendar size={14} /> SCHOOL CALENDAR
+                        </h4>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', color: 'rgba(255,255,255,0.6)' }}>
+                            <input
+                                type="checkbox"
+                                checked={syncToCalendar}
+                                onChange={(e) => setSyncToCalendar(e.target.checked)}
+                                style={{ accentColor: '#2563eb' }}
+                            />
+                            Sync with Google Calendar
+                        </label>
+                    </div>
+                    <div style={{ width: '100%', height: '250px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <iframe
+                            src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(import.meta.env.VITE_PRINCIPAL_CALENDAR_ID || 'primary')}&ctz=${Intl.DateTimeFormat().resolvedOptions().timeZone}&mode=WEEK&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&bgcolor=%230a0c10&wkst=1`}
+                            style={{ border: 0, width: '100%', height: '100%' }}
+                            frameBorder="0"
+                            scrolling="no"
+                        ></iframe>
                     </div>
                 </div>
 

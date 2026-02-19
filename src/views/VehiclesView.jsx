@@ -246,8 +246,7 @@ const VehiclesView = () => {
                     >
                         <option style={{ backgroundColor: '#1a1d21' }}>All Types</option>
                         <option style={{ backgroundColor: '#1a1d21' }}>Car</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Van (School)</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Van (Private)</option>
+                        <option style={{ backgroundColor: '#1a1d21' }}>Van</option>
                         <option style={{ backgroundColor: '#1a1d21' }}>Bus</option>
                         <option style={{ backgroundColor: '#1a1d21' }}>Motorbike</option>
                         <option style={{ backgroundColor: '#1a1d21' }}>Truck (Vendor)</option>
@@ -356,8 +355,7 @@ const VehiclesView = () => {
                                     style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--glass-border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
                                 >
                                     <option style={{ backgroundColor: '#1a1d21' }}>Car</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Van (School)</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Van (Private)</option>
+                                    <option style={{ backgroundColor: '#1a1d21' }}>Van</option>
                                     <option style={{ backgroundColor: '#1a1d21' }}>Bus</option>
                                     <option style={{ backgroundColor: '#1a1d21' }}>Motorbike</option>
                                     <option style={{ backgroundColor: '#1a1d21' }}>Truck (Vendor)</option>

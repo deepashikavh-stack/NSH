@@ -1,12 +1,18 @@
-const escapeHTML = (str) => str.replace(/[&<>"']/g, m => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-})[m]);
+export const escapeHTML = (str) => {
+    if (!str) return '';
+    return str.toString().replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[m]);
+};
 
-export const sendTelegramNotification = async (visitorNames, purpose, meetingWith, visitorId, approvalToken, contactNumber) => {
+export const sendTelegramNotification = async (visitorNames, purpose, meetingWith, visitorId, approvalToken, contactNumber, isExternal = false, source = 'On-arrival') => {
+    console.log('--- sendTelegramNotification ---');
+    console.log('isExternal:', isExternal);
+    console.log('source:', source);
     const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
     const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
     const envAppUrl = import.meta.env.VITE_APP_URL;
@@ -23,8 +29,10 @@ export const sendTelegramNotification = async (visitorNames, purpose, meetingWit
 
     const fullApproveUrl = `${appUrl}/approve/${approvalToken}`;
 
+    const sourceTag = source === 'webpage' ? ' (from webpage)' : (isExternal ? ' (via the web page)' : ' (On-Arrival)');
+
     const message = `
-🚨 <b>New Meeting Request</b> (On-Arrival)
+🚨 <b>New Meeting Request</b> ${sourceTag}
 
 👤 <b>Visitor:</b> ${escapeHTML(visitorNames)}
 📞 <b>Contact:</b> ${escapeHTML(contactNumber || 'Not Provided')}
@@ -255,4 +263,58 @@ export const sendForceReply = async (chatId, text, replyToMessageId) => {
     } catch (error) {
         console.error("Error sending force reply:", error);
     }
+};
+
+export const formatApprovedMessage = (details) => {
+    const {
+        visitorNames,
+        purpose,
+        meetingWith,
+        requestReceived,
+        approvedBy,
+        approvedAt,
+        startTime,
+        endTime,
+        date,
+        sourceTag = '(via Web Portal)'
+    } = details;
+
+    return `
+📅 <b>Meeting Scheduled</b> ${sourceTag}
+
+👤 <b>Visitor(s):</b> ${escapeHTML(visitorNames)}
+🏢 <b>Purpose:</b> ${escapeHTML(purpose)}
+🤝 <b>Meeting With:</b> ${escapeHTML(meetingWith || 'Not Specified')}
+⏰ <b>Request Received:</b> ${requestReceived}
+
+🔐 <b>Confirmed via Secure Portal</b>
+👮‍♂️ <b>Approved By:</b> ${escapeHTML(approvedBy)}
+⏰ <b>Scheduled At:</b> ${approvedAt}
+
+🕒 <b>Assigned Slot:</b> ${startTime} - ${endTime}
+📅 <b>Date:</b> ${date}
+
+📍 <b>Next Step:</b> Visitor is now guided to perform a formal check-in at the kiosk.
+    `.trim();
+};
+
+export const formatDeniedMessage = (details) => {
+    const {
+        visitorNames,
+        purpose,
+        meetingWith,
+        actionBy,
+        actionAt
+    } = details;
+
+    return `
+❌ <b>Meeting Request Cancelled</b>
+
+👤 <b>Visitor(s):</b> ${escapeHTML(visitorNames)}
+🏢 <b>Purpose:</b> ${escapeHTML(purpose)}
+🤝 <b>Meeting With:</b> ${escapeHTML(meetingWith || 'Not Specified')}
+
+👮‍♂️ <b>Action By:</b> ${escapeHTML(actionBy)}
+⏰ <b>Time:</b> ${actionAt}
+    `.trim();
 };

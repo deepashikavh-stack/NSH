@@ -1,10 +1,16 @@
 import React from 'react';
 import { MoreVertical, CheckCircle, Clock, XCircle, Download } from 'lucide-react';
-import { exportToCSV } from '../utils/csvExport';
+import { exportToPDF } from '../utils/pdfExport';
 
 const LogTable = ({ title, data, columns }) => {
-    const handleExport = () => {
-        exportToCSV(data, columns, `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}`);
+    const handleExport = async () => {
+        await exportToPDF({
+            title: title,
+            data: data,
+            columns: columns,
+            filename: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}`,
+            metadata: { generatedBy: 'Security Operations' }
+        });
     };
 
     const getStatusBadge = (status) => {
@@ -75,7 +81,7 @@ const LogTable = ({ title, data, columns }) => {
                             cursor: 'pointer'
                         }}
                     >
-                        <Download size={14} /> CSV
+                        <Download size={14} /> PDF
                     </button>
                 </div>
             </div>
