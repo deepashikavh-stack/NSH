@@ -2,14 +2,14 @@ import React from 'react';
 import { MoreVertical, CheckCircle, Clock, XCircle, Download } from 'lucide-react';
 import { exportToPDF } from '../utils/pdfExport';
 
-const LogTable = ({ title, data, columns }) => {
+const LogTable = ({ title, data, columns, metadata = {} }) => {
     const handleExport = async () => {
         await exportToPDF({
             title: title,
             data: data,
             columns: columns,
             filename: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}`,
-            metadata: { generatedBy: 'Security Operations' }
+            metadata: { generatedBy: 'Security Operations', ...metadata }
         });
     };
 
