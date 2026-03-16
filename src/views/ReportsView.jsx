@@ -242,6 +242,7 @@ const ReportsView = ({ user }) => {
 
                                 if (allRecords.length === 0) return;
 
+                                const rangeLabel = { Today: "Today's Activity", Weekly: 'Last 7 Days', Monthly: 'Last 30 Days', Annual: 'Yearly Review' }[dateRange] || dateRange;
                                 const columns = [
                                     { header: 'Entry Time', key: 'entry_time', render: (t) => t ? new Date(t).toLocaleString() : '' },
                                     { header: 'Category', key: 'category' },
@@ -254,7 +255,7 @@ const ReportsView = ({ user }) => {
 
                                 const filename = `OVERALL_AUDIT_${dateRange}_${new Date().toISOString().split('T')[0]}`;
                                 await exportToPDF({
-                                    title: 'Overall Audit Report',
+                                    title: `Overall Audit Report – ${rangeLabel}`,
                                     data: allRecords,
                                     columns: columns,
                                     filename: filename,
@@ -346,7 +347,7 @@ const ReportsView = ({ user }) => {
                     {activeTab === 'Visitor Logs' && (
                         <div className="space-y-8">
                             <ReportTable
-                                title="Detailed Visitor Log"
+                                title={`Visitor Log – ${{ Today: "Today's Activity", Weekly: 'Last 7 Days', Monthly: 'Last 30 Days', Annual: 'Yearly Review' }[dateRange] || dateRange}`}
                                 description="Complete log of all visitors with security officer attribution."
                                 data={data.visitors}
                                 columns={[
@@ -359,6 +360,7 @@ const ReportsView = ({ user }) => {
                                     { header: 'Authorized By', key: 'created_by_name', render: (v) => v || 'System' },
                                     { header: 'Exit Time', key: 'exit_time', render: (t) => t ? new Date(t).toLocaleTimeString() : 'Still On-site' }
                                 ]}
+                                metadata={{ generatedBy: user?.email || 'Admin', range: dateRange }}
                             />
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -396,7 +398,7 @@ const ReportsView = ({ user }) => {
                     {activeTab === 'Vehicle Logs' && (
                         <div className="space-y-8">
                             <ReportTable
-                                title="Vehicle Logistics Archive"
+                                title={`Vehicle Logistics Archive – ${{ Today: "Today's Activity", Weekly: 'Last 7 Days', Monthly: 'Last 30 Days', Annual: 'Yearly Review' }[dateRange] || dateRange}`}
                                 description="Comprehensive tracking of all vehicle movements."
                                 data={data.vehicles}
                                 columns={[
@@ -408,6 +410,7 @@ const ReportsView = ({ user }) => {
                                     { header: 'Purpose', key: 'purpose' },
                                     { header: 'Officer', key: 'created_by_name', render: (v) => v || 'System' }
                                 ]}
+                                metadata={{ generatedBy: user?.email || 'Admin', range: dateRange }}
                             />
                         </div>
                     )}
@@ -415,7 +418,7 @@ const ReportsView = ({ user }) => {
                     {activeTab === 'Security Risk' && (
                         <div className="grid grid-cols-2 gap-8">
                             <ReportTable
-                                title="Visitors Without Exit"
+                                title="Security Risk – Visitors Without Exit"
                                 description="Alert: Security persistence tracking."
                                 data={data.visitors.filter(v => !v.exit_time)}
                                 columns={[
@@ -423,9 +426,10 @@ const ReportsView = ({ user }) => {
                                     { header: 'Name', key: 'name' },
                                     { header: 'ID', key: 'nic_passport' }
                                 ]}
+                                metadata={{ generatedBy: user?.email || 'Admin', range: dateRange }}
                             />
                             <ReportTable
-                                title="Vehicles Without Exit"
+                                title="Security Risk – Vehicles Without Exit"
                                 description="Fleet monitoring & premises control."
                                 data={data.vehicles.filter(v => !v.exit_time)}
                                 columns={[
@@ -433,6 +437,7 @@ const ReportsView = ({ user }) => {
                                     { header: 'Vehicle', key: 'vehicle_number' },
                                     { header: 'Driver', key: 'driver_name' }
                                 ]}
+                                metadata={{ generatedBy: user?.email || 'Admin', range: dateRange }}
                             />
                         </div>
                     )}
