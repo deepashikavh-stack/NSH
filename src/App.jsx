@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
 import DashboardView from './views/DashboardView';
 import VehiclesView from './views/VehiclesView';
 import ReportsView from './views/ReportsView';
@@ -20,6 +21,7 @@ import { ArrowLeft } from 'lucide-react';
 import { AlertProvider } from './context/AlertContext';
 import { logAudit } from './lib/audit';
 import { syncTranslations } from './lib/translationSync';
+import { ROUTE_PERMISSIONS } from './utils/routeConfig';
 import './App.css';
 
 function AppContent() {
@@ -35,8 +37,20 @@ function AppContent() {
   }, []);
 
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('ngs_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('ngs_user');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Session integrity check — verify essential fields exist
+      if (!parsed || !parsed.role || !parsed.username) {
+        localStorage.removeItem('ngs_user');
+        return null;
+      }
+      return parsed;
+    } catch {
+      localStorage.removeItem('ngs_user');
+      return null;
+    }
   });
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -196,14 +210,42 @@ function AppContent() {
               <Route path="/" element={<VisitorTypeSelection />} />
               <Route path="/login" element={<LoginPage onLogin={handleLogin} onBack={() => navigate('/')} />} />
 
-              {/* Protected Routes */}
-              <Route path="/dashboard" element={<DashboardView user={user} />} />
-              <Route path="/scheduled-meetings" element={<ScheduledMeetingsView />} />
-              <Route path="/vehicles" element={<VehiclesView />} />
-              <Route path="/reports" element={<ReportsView user={user} />} />
-              <Route path="/audit-trail" element={<AuditTrailView />} />
-              <Route path="/user-management" element={<UserManagementView />} />
-              <Route path="/settings" element={<SettingsView user={user} onUpdateUser={handleUpdateUser} />} />
+              {/* Protected Routes — wrapped with role-based access control */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/dashboard']}>
+                  <DashboardView user={user} />
+                </ProtectedRoute>
+              } />
+              <Route path="/scheduled-meetings" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/scheduled-meetings']}>
+                  <ScheduledMeetingsView />
+                </ProtectedRoute>
+              } />
+              <Route path="/vehicles" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/vehicles']}>
+                  <VehiclesView />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/reports']}>
+                  <ReportsView user={user} />
+                </ProtectedRoute>
+              } />
+              <Route path="/audit-trail" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/audit-trail']}>
+                  <AuditTrailView />
+                </ProtectedRoute>
+              } />
+              <Route path="/user-management" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/user-management']}>
+                  <UserManagementView />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/settings']}>
+                  <SettingsView user={user} onUpdateUser={handleUpdateUser} />
+                </ProtectedRoute>
+              } />
 
               {/* Kiosk Routes */}
               <Route path="/kiosk/check-in" element={<VisitorSelfCheckIn />} />

@@ -153,7 +153,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
 
             // Polling Fallback (Every 3 seconds)
             pollInterval = setInterval(async () => {
-                const { data } = await supabase.from('scheduled_meetings').select('*').eq('id', visitorId).single();
+                const { data } = await supabase.from('scheduled_meetings').select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, visitor_category').eq('id', visitorId).single();
                 if (data) {
                     const newStatus = data.status;
                     if (['Scheduled', 'Confirmed', 'Approved'].includes(newStatus)) {
@@ -208,7 +208,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
             const today = new Date().toISOString().split('T')[0];
             const { data, error } = await supabase
                 .from('scheduled_meetings')
-                .select('*')
+                .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, visitor_category, approval_token')
                 .eq('visitor_nic', primaryNic)
                 .eq('meeting_date', today)
                 .in('status', ['Scheduled', 'Confirmed'])
@@ -413,7 +413,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     {/* Fallback Refresh Button */}
                     <button
                         onClick={async () => {
-                            const { data } = await supabase.from('scheduled_meetings').select('*').eq('id', visitorId).single();
+                            const { data } = await supabase.from('scheduled_meetings').select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, visitor_category').eq('id', visitorId).single();
                             if (data && (data.status === 'Scheduled' || data.status === 'Confirmed')) {
                                 setMeetingDetails({ date: data.meeting_date, from: data.start_time, to: data.end_time });
                                 setApprovalStatus('scheduled');

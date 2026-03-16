@@ -23,7 +23,7 @@ const ScheduledMeetingsView = () => {
         try {
             const { data, error } = await supabase
                 .from('scheduled_meetings')
-                .select('*')
+                .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, meeting_role, start_time, end_time, status, visitor_category, meeting_id, google_event_id, created_at')
                 .order('meeting_date', { ascending: true })
                 .order('start_time', { ascending: true });
 

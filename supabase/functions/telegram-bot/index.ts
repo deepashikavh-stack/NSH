@@ -13,6 +13,15 @@ const supabase = createClient(supabaseUrl!, supabaseServiceKey!)
 
 serve(async (req) => {
     try {
+        // Validate webhook secret to prevent unauthorized access
+        const webhookSecret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET');
+        if (webhookSecret) {
+            const requestSecret = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
+            if (requestSecret !== webhookSecret) {
+                return new Response('Unauthorized', { status: 401 });
+            }
+        }
+
         const url = new URL(req.url)
 
         // 1. Handle Database Trigger (POST /notify)

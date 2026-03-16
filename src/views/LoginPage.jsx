@@ -4,6 +4,7 @@ import { ShieldCheck, Lock, User, ArrowLeft, X, Key } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import { logAudit } from '../lib/audit';
+import { verifyPassword, hashPassword, validatePasswordStrength } from '../utils/passwordUtils';
 
 const LoginPage = ({ onLogin, onBack }) => {
     const { t } = useTranslation();
@@ -17,15 +18,7 @@ const LoginPage = ({ onLogin, onBack }) => {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [resetting, setResetting] = useState(false);
-
-    // Default password mapping (for demo purposes - in production, use proper password hashing)
-    const defaultPasswords = {
-        'admin@lyceumglobal.co': 'Admin@1234',
-        'so@lyceumglobal.co': 'So@1234',
-        'hodso@lyceumglobal.co': 'Hod@1234',
-        'sclmgt@lyceumglobal.co': 'Mgt@1234',
-        'sclops@lyceumglobal.co': 'Ops@1234'
-    };
+    const [passwordErrors, setPasswordErrors] = useState([]);
 
     useEffect(() => {
         fetchUsers();
@@ -35,7 +28,7 @@ const LoginPage = ({ onLogin, onBack }) => {
         try {
             const { data, error } = await supabase
                 .from('users')
-                .select('*')
+                .select('id, email, full_name, role, is_active')
                 .eq('is_active', true)
                 .order('role', { ascending: true });
 
@@ -46,10 +39,9 @@ const LoginPage = ({ onLogin, onBack }) => {
                 const firstUser = data[0];
                 setSelectedUser(firstUser);
                 setUsername(firstUser.email);
-                setPassword(defaultPasswords[firstUser.email] || '');
             }
         } catch (err) {
-            console.error('Error fetching users:', err);
+            if (import.meta.env.DEV) console.error('Error fetching users:', err);
             alert('Error loading users. Please refresh the page.');
         } finally {
             setLoading(false);
@@ -61,7 +53,7 @@ const LoginPage = ({ onLogin, onBack }) => {
         if (user) {
             setSelectedUser(user);
             setUsername(user.email);
-            setPassword(defaultPasswords[user.email] || '');
+            setPassword('');
         }
     };
 
@@ -78,7 +70,7 @@ const LoginPage = ({ onLogin, onBack }) => {
             return;
         }
 
-        // Verify password from database
+        // Verify password from database using bcrypt
         try {
             const { data: user, error } = await supabase
                 .from('users')
@@ -91,21 +83,22 @@ const LoginPage = ({ onLogin, onBack }) => {
                 return;
             }
 
-            // Check if password matches (in production, use proper password hashing)
-            if (user.password === password) {
+            const isValid = await verifyPassword(password, user.password);
+            if (isValid) {
                 logAudit('Login', 'users', null, username, { role: selectedUser.role, name: selectedUser.full_name });
                 onLogin({ username, role: selectedUser.role, full_name: selectedUser.full_name });
             } else {
                 alert('Invalid credentials');
             }
         } catch (err) {
-            console.error('Login error:', err);
+            if (import.meta.env.DEV) console.error('Login error:', err);
             alert('Login failed. Please try again.');
         }
     };
 
     const handleForgotPassword = async (e) => {
         e.preventDefault();
+        setPasswordErrors([]);
 
         if (!resetEmail) {
             alert('Please enter your email address');
@@ -117,8 +110,10 @@ const LoginPage = ({ onLogin, onBack }) => {
             return;
         }
 
-        if (newPassword.length < 6) {
-            alert('Password must be at least 6 characters long');
+        // Validate password strength
+        const { valid, errors } = validatePasswordStrength(newPassword);
+        if (!valid) {
+            setPasswordErrors(errors);
             return;
         }
 
@@ -127,7 +122,7 @@ const LoginPage = ({ onLogin, onBack }) => {
             // Verify user exists
             const { data: user, error: userError } = await supabase
                 .from('users')
-                .select('*')
+                .select('id, full_name, email')
                 .eq('email', resetEmail)
                 .single();
 
@@ -137,14 +132,12 @@ const LoginPage = ({ onLogin, onBack }) => {
                 return;
             }
 
-            // In a real application, you would:
-            // 1. Send a password reset email with a secure token
-            // 2. Verify the token before allowing password reset
-            // For this demo, we'll update the password directly
+            // Hash the new password before storing
+            const hashedPassword = await hashPassword(newPassword);
 
             const { error: updateError } = await supabase
                 .from('users')
-                .update({ password: newPassword })
+                .update({ password: hashedPassword })
                 .eq('email', resetEmail);
 
             if (updateError) {
@@ -159,9 +152,10 @@ const LoginPage = ({ onLogin, onBack }) => {
             setResetEmail('');
             setNewPassword('');
             setConfirmPassword('');
+            setPasswordErrors([]);
 
         } catch (err) {
-            console.error('Error resetting password:', err);
+            if (import.meta.env.DEV) console.error('Error resetting password:', err);
             alert('Error resetting password. Please try again.');
         } finally {
             setResetting(false);

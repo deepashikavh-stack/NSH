@@ -77,10 +77,10 @@ const ReportsView = ({ user }) => {
             const ISOFilter = dateFilter.toISOString();
 
             const [vRes, vhRes, mRes, sRes] = await Promise.all([
-                supabase.from('visitors').select('*').gte('entry_time', ISOFilter),
-                supabase.from('vehicle_entries').select('*').gte('entry_time', ISOFilter),
-                supabase.from('scheduled_meetings').select('*').gte('meeting_date', ISOFilter.split('T')[0]),
-                supabase.from('staff_entries').select('*').gte('entry_time', ISOFilter)
+                supabase.from('visitors').select('id, name, nic_passport, purpose, meeting_with, entry_time, exit_time, status, type, validation_method, is_pre_registered, created_by_name').gte('entry_time', ISOFilter),
+                supabase.from('vehicle_entries').select('id, vehicle_number, vehicle_type, driver_name, is_sbu_vehicle, purpose, entry_time, exit_time, created_by_name').gte('entry_time', ISOFilter),
+                supabase.from('scheduled_meetings').select('id, visitor_name, purpose, meeting_with, meeting_date, start_time, end_time, status').gte('meeting_date', ISOFilter.split('T')[0]),
+                supabase.from('staff_entries').select('id, name, entry_time, exit_time, status, type').gte('entry_time', ISOFilter)
             ]);
 
             setData({

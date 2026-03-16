@@ -23,7 +23,7 @@ const VisitorCheckOut = () => {
             // Find an active visitor (Checked-in and no exit_time)
             const { data, error: fetchError } = await supabase
                 .from('visitors')
-                .select('*')
+                .select('id, name, nic_passport, entry_time, status, type, meeting_with, purpose')
                 .eq('nic_passport', idNumber)
                 .is('exit_time', null)
                 .order('entry_time', { ascending: false })

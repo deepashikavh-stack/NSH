@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Users, Plus, Edit, Trash2, Search, X, Shield, Mail, User as UserIcon, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
+import { hashPassword } from '../utils/passwordUtils';
 
 const UserManagementView = () => {
     const { t } = useTranslation();
@@ -31,13 +32,13 @@ const UserManagementView = () => {
         try {
             const { data, error } = await supabase
                 .from('users')
-                .select('*')
+                .select('id, email, full_name, role, is_active, created_at')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
             setUsers(data || []);
         } catch (err) {
-            console.error('Error fetching users:', err);
+            if (import.meta.env.DEV) console.error('Error fetching users:', err);
             alert('Error loading users: ' + err.message);
         } finally {
             setLoading(false);
@@ -67,13 +68,16 @@ const UserManagementView = () => {
 
         try {
             if (modalMode === 'create') {
+                // Hash a default password for new users
+                const defaultPassword = await hashPassword('Welcome@1234');
                 const { error } = await supabase
                     .from('users')
                     .insert({
                         email: formData.email,
                         full_name: formData.full_name,
                         role: formData.role,
-                        is_active: true
+                        is_active: true,
+                        password: defaultPassword
                     });
 
                 if (error) throw error;

@@ -16,7 +16,7 @@ const AuditTrailView = () => {
         try {
             const { data, error } = await supabase
                 .from('audit_logs')
-                .select('*')
+                .select('id, action, table_name, record_id, user_id, details, timestamp')
                 .order('timestamp', { ascending: false })
                 .limit(200);
             if (error) throw error;

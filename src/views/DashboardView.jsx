@@ -130,17 +130,17 @@ const DashboardView = ({ user }) => {
         // 1. Fetch pending visitors
         const { data: visitors, error: visitorError } = await supabase
             .from('visitors')
-            .select('*')
+            .select('id, name, nic_passport, purpose, meeting_with, entry_time, status, type, telegram_chat_id, telegram_message_id, meeting_from, meeting_to, validation_method, is_pre_registered, source_tag, approved_by')
             .eq('status', 'Pending');
 
         // 2. Fetch on-arrival meeting requests
         const { data: meetingRequests, error: meetingError } = await supabase
             .from('scheduled_meetings')
-            .select('*')
+            .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, meeting_role, start_time, end_time, status, visitor_category, telegram_chat_id, telegram_message_id, created_at, request_source, meeting_id')
             .eq('status', 'Meeting Requested');
 
-        if (visitorError) console.error("Error fetching pending visitors:", visitorError);
-        if (meetingError) console.error("Error fetching meeting requests:", meetingError);
+        if (visitorError && import.meta.env.DEV) console.error("Error fetching pending visitors:", visitorError);
+        if (meetingError && import.meta.env.DEV) console.error("Error fetching meeting requests:", meetingError);
 
         // Merge both into a single pending list
         const merged = [
@@ -159,13 +159,13 @@ const DashboardView = ({ user }) => {
             }))
         ].sort((a, b) => new Date(a.entry_time) - new Date(b.entry_time)); // Oldest first
 
-        console.log("Unified Pending List:", merged);
+        if (import.meta.env.DEV) console.log("Unified Pending List:", merged);
         setPendingVisitors(merged);
     };
 
     const handleApprove = async (id, sourceTable = 'visitors') => {
         if (sourceTable === 'scheduled_meetings') {
-            const { data: meeting } = await supabase.from('scheduled_meetings').select('*').eq('id', id).single();
+            const { data: meeting } = await supabase.from('scheduled_meetings').select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, telegram_chat_id, telegram_message_id, created_at, request_source').eq('id', id).single();
             if (!meeting) return;
 
             // Simple update to Scheduled (using default times as it's from dashboard)
@@ -203,7 +203,7 @@ const DashboardView = ({ user }) => {
             // Legacy handleApprove for visitors table
             const { data: visitor } = await supabase
                 .from('visitors')
-                .select('*')
+                .select('id, name, nic_passport, purpose, meeting_with, entry_time, status, type, telegram_chat_id, telegram_message_id, meeting_from, meeting_to, validation_method, is_pre_registered, approved_by')
                 .eq('id', id)
                 .single();
 
@@ -244,7 +244,7 @@ const DashboardView = ({ user }) => {
 
     const handleReject = async (id, sourceTable = 'visitors') => {
         if (sourceTable === 'scheduled_meetings') {
-            const { data: meeting } = await supabase.from('scheduled_meetings').select('*').eq('id', id).single();
+            const { data: meeting } = await supabase.from('scheduled_meetings').select('id, visitor_name, visitor_contact, purpose, meeting_with, meeting_date, telegram_chat_id, telegram_message_id').eq('id', id).single();
             await supabase.from('scheduled_meetings').update({ status: 'Cancelled' }).eq('id', id);
 
             if (meeting?.telegram_chat_id && meeting?.telegram_message_id) {
@@ -285,7 +285,7 @@ const DashboardView = ({ user }) => {
         // Try to find visitor by original notification ID
         let { data: visitor, error } = await supabase
             .from('visitors')
-            .select('*')
+            .select('id, name, nic_passport, purpose, meeting_with, entry_time, status, type, telegram_chat_id, telegram_message_id, meeting_from, meeting_to, approval_time, approved_by')
             .eq('telegram_message_id', originalMessageId)
             .single();
 
@@ -296,7 +296,7 @@ const DashboardView = ({ user }) => {
                 const visitorId = idMatch[1];
                 const { data: visitorById, error: errorById } = await supabase
                     .from('visitors')
-                    .select('*')
+                    .select('id, name, nic_passport, purpose, meeting_with, entry_time, status, type, telegram_chat_id, telegram_message_id, meeting_from, meeting_to, approval_time, approved_by')
                     .eq('id', visitorId)
                     .single();
 
@@ -367,7 +367,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
             const toTime = `${hour}:${minute}`;
 
             // Get current visitor to get meeting_from
-            const { data: visitor } = await supabase.from('visitors').select('*').eq('id', visitorId).single();
+            const { data: visitor } = await supabase.from('visitors').select('id, name, nic_passport, purpose, meeting_with, entry_time, status, type, meeting_from, meeting_to, approval_time, approved_by, telegram_chat_id, telegram_message_id').eq('id', visitorId).single();
             const fromTime = visitor?.meeting_from || '---';
 
             // 1. Create a Scheduled Meeting (On-arrival)
@@ -432,7 +432,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
         // 1. Fetch Scheduled Meetings
         const { data: meetings, error: meetingsError } = await supabase
             .from('scheduled_meetings')
-            .select('*')
+            .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, visitor_category, request_source')
             .eq('meeting_date', today)
             .in('status', ['Scheduled', 'Confirmed']);
 
@@ -451,7 +451,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
         // 2. Fetch Visitors
         const { data: visitorsData, error: visitorsError } = await supabase
             .from('visitors')
-            .select('*')
+            .select('id, name, nic_passport, purpose, meeting_with, entry_time, exit_time, status, type, validation_method, is_pre_registered, meeting_from, meeting_to, source_tag')
             .order('entry_time', { ascending: false })
             .limit(50); // Fetch recent 50
         if (visitorsError) console.error("Error fetching visitors:", visitorsError);
@@ -460,7 +460,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
         // 3. Fetch Staff Entries
         const { data: staffData, error: staffError } = await supabase
             .from('staff_entries')
-            .select('*')
+            .select('id, name, entry_time, exit_time, status, type')
             .order('entry_time', { ascending: false })
             .limit(20);
         if (staffError) console.error("Error fetching staff entries:", staffError);
@@ -468,7 +468,7 @@ ${visitor.status === 'Checked-in' ? `👮‍♂️ *Approved By:* ${approvedBy}\
         // 4. Fetch Vehicle Entries
         const { data: vehicleData, error: vehicleError } = await supabase
             .from('vehicle_entries')
-            .select('*')
+            .select('id, vehicle_number, vehicle_type, driver_name, entry_time, exit_time, status, is_sbu_vehicle, type')
             .order('entry_time', { ascending: false })
             .limit(20);
         if (vehicleError) console.error("Error fetching vehicle entries:", vehicleError);

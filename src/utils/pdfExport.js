@@ -1,10 +1,22 @@
 import jsPDF from 'jspdf';
 
-// ─── Color Palette ────────────────────────────────────────────────────────────
-const C = {
-    headerBg: [15, 23, 42],       // Deep navy
-    primary: [255, 140, 0],      // Orange / gold accent
-    darkHeader: [30, 41, 59],       // Dark table header
+/**
+ * PDFExportService — Generates branded PDF reports using the Builder pattern.
+ * 
+ * Design Pattern: Builder — Chainable configuration before final export.
+ * 
+ * Usage:
+ *   await new PDFExportService('Visitor Report')
+ *     .withMetadata({ generatedBy: 'Admin', range: '2026-03' })
+ *     .addTable(columns, rows)
+ *     .export('visitor_report.pdf');
+ */
+
+// ─── Color Palette (Design System Constants) ─────────────────────────────────
+const COLORS = {
+    headerBg: [15, 23, 42],
+    primary: [255, 140, 0],
+    darkHeader: [30, 41, 59],
     white: [255, 255, 255],
     bodyText: [30, 41, 59],
     mutedText: [100, 116, 139],
@@ -15,262 +27,321 @@ const C = {
     dangerRed: [239, 68, 68],
 };
 
+/** Helper: set fill color */
 const setFill = (doc, c) => doc.setFillColor(...c);
+/** Helper: set text color */
 const setText = (doc, c) => doc.setTextColor(...c);
+/** Helper: set draw color */
 const setDraw = (doc, c) => doc.setDrawColor(...c);
 
+/** Truncate string to max length */
 const truncate = (str, max = 35) => {
     const s = str != null ? String(str) : '-';
     return s.length > max ? s.slice(0, max - 1) + '…' : s;
 };
 
-// ─── Load logo as base64 ──────────────────────────────────────────────────────
-const loadLogoBase64 = () => {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => resolve(null); // gracefully skip if logo missing
-        img.src = '/logo.png';
-    });
-};
+// ─── PDFExportService Class ──────────────────────────────────────────────────
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-const drawHeader = (doc, title, pageWidth, logoBase64) => {
-    const H = 52;
-
-    // Navy background
-    setFill(doc, C.headerBg);
-    doc.rect(0, 0, pageWidth, H, 'F');
-
-    // Orange left accent bar
-    setFill(doc, C.primary);
-    doc.rect(0, 0, 4, H, 'F');
-
-    // Logo (if loaded)
-    const logoSize = 20;
-    const logoX = 10;
-    const logoY = (H - logoSize) / 2;
-    if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoSize, logoSize);
+export class PDFExportService {
+    /**
+     * @param {string} title — Report title displayed in the header
+     */
+    constructor(title) {
+        this.title = title;
+        this.metadata = {};
+        this.tables = [];
+        this.logoBase64 = null;
     }
 
-    // Company name & report title (to the right of the logo)
-    const textX = logoBase64 ? logoX + logoSize + 5 : 12;
+    /**
+     * Set report metadata (generatedBy, range, etc.).
+     * @param {Object} metadata
+     * @returns {PDFExportService} this (Builder pattern)
+     */
+    withMetadata(metadata) {
+        this.metadata = { ...this.metadata, ...metadata };
+        return this;
+    }
 
-    // Company name: "Nextgen Shield (Private) Limited"
-    setText(doc, C.primary);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Nextgen Shield (Private) Limited', textX, 20);
+    /**
+     * Pre-load and attach the company logo.
+     * @returns {PDFExportService} this
+     */
+    async withLogo() {
+        this.logoBase64 = await PDFExportService._loadLogoBase64();
+        return this;
+    }
 
-    // Report title (white, slightly smaller)
-    setText(doc, C.white);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(title, textX, 32);
+    /**
+     * Add a data table to the report.
+     * @param {Array<{ header: string, key: string, render?: Function }>} columns
+     * @param {Array<Object>} data — Raw data rows
+     * @returns {PDFExportService} this
+     */
+    addTable(columns, data) {
+        this.tables.push({ columns, data });
+        return this;
+    }
 
-    // Thin orange separator line at bottom of header
-    setDraw(doc, C.primary);
-    doc.setLineWidth(0.8);
-    doc.line(0, H, pageWidth, H);
+    /**
+     * Generate and save the PDF.
+     * @param {string} filename
+     * @returns {Promise<void>}
+     */
+    async export(filename) {
+        // Auto-load logo if not already loaded
+        if (!this.logoBase64) {
+            await this.withLogo();
+        }
 
-    return H;
-};
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
 
-// ─── Info Table ───────────────────────────────────────────────────────────────
-const drawInfoTable = (doc, metadata, startY, pageWidth) => {
-    const margin = 14;
-    const tableW = pageWidth - margin * 2;
-    const colW = tableW / 4;
-    const hH = 8, vH = 9;
+        // 1. Header
+        let y = this._drawHeader(doc, pageWidth) + 8;
 
-    setText(doc, C.bodyText);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Report Information', margin, startY + 5);
+        // 2. Info table
+        y = this._drawInfoTable(doc, y, pageWidth);
 
-    const tY = startY + 8;
+        // 3. Data tables
+        for (const table of this.tables) {
+            setText(doc, COLORS.bodyText);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Detailed Records', 14, y + 4);
+            y += 8;
 
-    // Header row (orange)
-    setFill(doc, C.primary);
-    doc.rect(margin, tY, tableW, hH, 'F');
-    setText(doc, C.headerBg);
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'bold');
-    ['Generated By', 'Report Status', 'Summary Date', 'Scope'].forEach((h, i) => {
-        doc.text(h, margin + i * colW + 3, tY + 5.5);
-    });
+            const rows = this._flattenTableRows(table.columns, table.data);
+            y = this._drawTable(doc, table.columns, rows, y, pageWidth);
+        }
 
-    // Value row (white)
-    setFill(doc, C.white);
-    setDraw(doc, C.border);
-    doc.setLineWidth(0.3);
-    doc.rect(margin, tY + hH, tableW, vH, 'FD');
-    setText(doc, C.bodyText);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    [
-        metadata.generatedBy || 'System Admin',
-        'Complete',
-        new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        metadata.range || 'Live Feed',
-    ].forEach((v, i) => {
-        doc.text(String(v), margin + i * colW + 3, tY + hH + 6);
-    });
+        // 4. Footer on every page
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            this._drawFooter(doc, pageWidth, pageHeight, i, pageCount);
+        }
 
-    return tY + hH + vH + 8;
-};
+        const outputName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+        doc.save(outputName);
+    }
 
-// ─── Manual Table Drawing ─────────────────────────────────────────────────────
-const drawTable = (doc, columns, rows, startY, pageWidth) => {
-    const margin = 14;
-    const tableW = pageWidth - margin * 2;
-    const colW = tableW / columns.length;
-    const rowH = 8;
-    const headerH = 9;
+    // ─── Private Drawing Methods ─────────────────────────────────────────────
 
-    let y = startY;
+    _drawHeader(doc, pageWidth) {
+        const H = 52;
 
-    const drawRowHeader = () => {
-        setFill(doc, C.darkHeader);
-        doc.rect(margin, y, tableW, headerH, 'F');
-        setText(doc, C.white);
+        setFill(doc, COLORS.headerBg);
+        doc.rect(0, 0, pageWidth, H, 'F');
+
+        setFill(doc, COLORS.primary);
+        doc.rect(0, 0, 4, H, 'F');
+
+        const logoSize = 20;
+        const logoX = 10;
+        const logoY = (H - logoSize) / 2;
+        if (this.logoBase64) {
+            doc.addImage(this.logoBase64, 'PNG', logoX, logoY, logoSize, logoSize);
+        }
+
+        const textX = this.logoBase64 ? logoX + logoSize + 5 : 12;
+
+        setText(doc, COLORS.primary);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Nextgen Shield (Private) Limited', textX, 20);
+
+        setText(doc, COLORS.white);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(this.title, textX, 32);
+
+        setDraw(doc, COLORS.primary);
+        doc.setLineWidth(0.8);
+        doc.line(0, H, pageWidth, H);
+
+        return H;
+    }
+
+    _drawInfoTable(doc, startY, pageWidth) {
+        const margin = 14;
+        const tableW = pageWidth - margin * 2;
+        const colW = tableW / 4;
+        const hH = 8, vH = 9;
+
+        setText(doc, COLORS.bodyText);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Report Information', margin, startY + 5);
+
+        const tY = startY + 8;
+
+        setFill(doc, COLORS.primary);
+        doc.rect(margin, tY, tableW, hH, 'F');
+        setText(doc, COLORS.headerBg);
         doc.setFontSize(7.5);
         doc.setFont('helvetica', 'bold');
-        columns.forEach((col, i) => {
-            doc.text(col.header.toUpperCase(), margin + i * colW + colW / 2, y + 6, { align: 'center' });
+        ['Generated By', 'Report Status', 'Summary Date', 'Scope'].forEach((h, i) => {
+            doc.text(h, margin + i * colW + 3, tY + 5.5);
         });
-        y += headerH;
-    };
 
-    const checkPageBreak = () => {
-        const pageH = doc.internal.pageSize.getHeight();
-        if (y + rowH > pageH - 20) {
-            doc.addPage();
-            y = 20;
-            drawRowHeader();
-        }
-    };
+        setFill(doc, COLORS.white);
+        setDraw(doc, COLORS.border);
+        doc.setLineWidth(0.3);
+        doc.rect(margin, tY + hH, tableW, vH, 'FD');
+        setText(doc, COLORS.bodyText);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        [
+            this.metadata.generatedBy || 'System Admin',
+            'Complete',
+            new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            this.metadata.range || 'Live Feed',
+        ].forEach((v, i) => {
+            doc.text(String(v), margin + i * colW + 3, tY + hH + 6);
+        });
 
-    drawRowHeader();
+        return tY + hH + vH + 8;
+    }
 
-    rows.forEach((row, rowIdx) => {
-        checkPageBreak();
+    _drawTable(doc, columns, rows, startY, pageWidth) {
+        const margin = 14;
+        const tableW = pageWidth - margin * 2;
+        const colW = tableW / columns.length;
+        const rowH = 8;
+        const headerH = 9;
+        let y = startY;
 
-        if (rowIdx % 2 === 1) {
-            setFill(doc, C.rowAlt);
-            doc.rect(margin, y, tableW, rowH, 'F');
-        }
+        const drawRowHeader = () => {
+            setFill(doc, COLORS.darkHeader);
+            doc.rect(margin, y, tableW, headerH, 'F');
+            setText(doc, COLORS.white);
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'bold');
+            columns.forEach((col, i) => {
+                doc.text(col.header.toUpperCase(), margin + i * colW + colW / 2, y + 6, { align: 'center' });
+            });
+            y += headerH;
+        };
 
-        setDraw(doc, C.border);
-        doc.setLineWidth(0.2);
-        doc.rect(margin, y, tableW, rowH, 'D');
+        const checkPageBreak = () => {
+            const pageH = doc.internal.pageSize.getHeight();
+            if (y + rowH > pageH - 20) {
+                doc.addPage();
+                y = 20;
+                drawRowHeader();
+            }
+        };
 
-        row.forEach((cell, i) => {
-            const cellText = String(cell ?? '-');
-            const lower = cellText.toLowerCase();
+        drawRowHeader();
 
-            if (['checked-in', 'approved', 'confirmed', 'complete', 'scheduled'].some(s => lower.includes(s))) {
-                setText(doc, C.successGreen);
-                doc.setFont('helvetica', 'bold');
-            } else if (['pending', 'in progress', 'meeting requested'].some(s => lower.includes(s))) {
-                setText(doc, C.warningAmber);
-                doc.setFont('helvetica', 'bold');
-            } else if (['denied', 'rejected', 'cancelled'].some(s => lower.includes(s))) {
-                setText(doc, C.dangerRed);
-                doc.setFont('helvetica', 'bold');
-            } else if (i === 0) {
-                setText(doc, C.bodyText);
-                doc.setFont('helvetica', 'bold');
-            } else {
-                setText(doc, C.bodyText);
-                doc.setFont('helvetica', 'normal');
+        rows.forEach((row, rowIdx) => {
+            checkPageBreak();
+
+            if (rowIdx % 2 === 1) {
+                setFill(doc, COLORS.rowAlt);
+                doc.rect(margin, y, tableW, rowH, 'F');
             }
 
-            doc.setFontSize(7);
-            const clipped = doc.splitTextToSize(cellText, colW - 4)[0] || cellText;
-            doc.text(clipped, margin + i * colW + 3, y + 5.5);
+            setDraw(doc, COLORS.border);
+            doc.setLineWidth(0.2);
+            doc.rect(margin, y, tableW, rowH, 'D');
+
+            row.forEach((cell, i) => {
+                const cellText = String(cell ?? '-');
+                const lower = cellText.toLowerCase();
+
+                if (['checked-in', 'approved', 'confirmed', 'complete', 'scheduled'].some(s => lower.includes(s))) {
+                    setText(doc, COLORS.successGreen);
+                    doc.setFont('helvetica', 'bold');
+                } else if (['pending', 'in progress', 'meeting requested'].some(s => lower.includes(s))) {
+                    setText(doc, COLORS.warningAmber);
+                    doc.setFont('helvetica', 'bold');
+                } else if (['denied', 'rejected', 'cancelled'].some(s => lower.includes(s))) {
+                    setText(doc, COLORS.dangerRed);
+                    doc.setFont('helvetica', 'bold');
+                } else if (i === 0) {
+                    setText(doc, COLORS.bodyText);
+                    doc.setFont('helvetica', 'bold');
+                } else {
+                    setText(doc, COLORS.bodyText);
+                    doc.setFont('helvetica', 'normal');
+                }
+
+                doc.setFontSize(7);
+                const clipped = doc.splitTextToSize(cellText, colW - 4)[0] || cellText;
+                doc.text(clipped, margin + i * colW + 3, y + 5.5);
+            });
+
+            y += rowH;
         });
 
-        y += rowH;
-    });
+        return y;
+    }
 
-    return y;
-};
+    _drawFooter(doc, pageWidth, pageHeight, pageNum, pageCount) {
+        const y = pageHeight - 12;
+        setDraw(doc, COLORS.border);
+        doc.setLineWidth(0.3);
+        doc.line(14, y - 3, pageWidth - 14, y - 3);
 
-// ─── Footer ───────────────────────────────────────────────────────────────────
-const drawFooter = (doc, pageWidth, pageHeight, pageNum, pageCount) => {
-    const y = pageHeight - 12;
-    setDraw(doc, C.border);
-    doc.setLineWidth(0.3);
-    doc.line(14, y - 3, pageWidth - 14, y - 3);
+        setText(doc, COLORS.mutedText);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Nextgen Shield (Private) Limited  •  Confidential', 14, y + 1);
+        doc.text(`Page ${pageNum} of ${pageCount}`, pageWidth - 14, y + 1, { align: 'right' });
+    }
 
-    setText(doc, C.mutedText);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Nextgen Shield (Private) Limited  •  Confidential', 14, y + 1);
-    doc.text(`Page ${pageNum} of ${pageCount}`, pageWidth - 14, y + 1, { align: 'right' });
-};
+    _flattenTableRows(columns, data) {
+        return data.map(row =>
+            columns.map(col => {
+                let val = row[col.key];
+                if (col.render) {
+                    try {
+                        const rendered = col.render(val, row);
+                        if (rendered !== null && typeof rendered === 'object' && rendered.$$typeof) {
+                            val = val != null ? String(val) : '-';
+                        } else {
+                            val = rendered;
+                        }
+                    } catch (_) { /* keep raw val */ }
+                }
+                return truncate(val);
+            })
+        );
+    }
 
-// ─── Main Export ──────────────────────────────────────────────────────────────
+    // ─── Static Helpers ──────────────────────────────────────────────────────
+
+    static _loadLogoBase64() {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(null);
+            img.src = '/logo.png';
+        });
+    }
+}
+
+// ─── Legacy API (backward-compatible) ────────────────────────────────────────
+
+/**
+ * @deprecated Use `new PDFExportService(title).addTable(columns, data).export(filename)` instead.
+ */
 export const exportToPDF = async (options) => {
     const { title, data, columns, filename, metadata = {} } = options;
 
-    // Load logo before building PDF
-    const logoBase64 = await loadLogoBase64();
-
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // 1. Header (logo + company name + report title)
-    let y = drawHeader(doc, title, pageWidth, logoBase64) + 8;
-
-    // 2. Info table
-    y = drawInfoTable(doc, metadata, y, pageWidth);
-
-    // 3. Section label
-    setText(doc, C.bodyText);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Detailed Records', 14, y + 4);
-    y += 8;
-
-    // 4. Build table rows (flatten React elements to plain strings)
-    const tableRows = data.map(row =>
-        columns.map(col => {
-            let val = row[col.key];
-            if (col.render) {
-                try {
-                    const rendered = col.render(val, row);
-                    if (rendered !== null && typeof rendered === 'object' && rendered.$$typeof) {
-                        val = val != null ? String(val) : '-';
-                    } else {
-                        val = rendered;
-                    }
-                } catch (_) { /* keep raw val */ }
-            }
-            return truncate(val);
-        })
-    );
-
-    // 5. Draw table
-    drawTable(doc, columns, tableRows, y, pageWidth);
-
-    // 6. Footer on every page
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        drawFooter(doc, pageWidth, pageHeight, i, pageCount);
-    }
-
-    doc.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+    await new PDFExportService(title)
+        .withMetadata(metadata)
+        .addTable(columns, data)
+        .export(filename);
 };

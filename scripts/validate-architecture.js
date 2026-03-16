@@ -35,8 +35,18 @@ function log(type, message, details = '') {
     }
 }
 
-// 1. Directory Structure check
-const requiredDirs = ['src/components', 'src/views', 'src/lib', 'src/assets', 'src/context', 'src/utils'];
+// ─── 1. Directory Structure Check ────────────────────────────────────────────
+const requiredDirs = [
+    'src/components',
+    'src/views',
+    'src/lib',
+    'src/assets',
+    'src/context',
+    'src/utils',
+    'src/services',                      // NEW: Service layer
+    'src/services/notifications',        // NEW: Notification strategies
+];
+
 log('info', 'Checking directory structure...');
 requiredDirs.forEach(dir => {
     if (fs.existsSync(path.join(rootDir, dir))) {
@@ -46,7 +56,29 @@ requiredDirs.forEach(dir => {
     }
 });
 
-// 2. Naming Conventions (PascalCase for Views and Components)
+// ─── 2. Required Service Files Check ─────────────────────────────────────────
+const requiredServiceFiles = [
+    'src/services/BaseService.js',
+    'src/services/VisitorService.js',
+    'src/services/MeetingService.js',
+    'src/services/VehicleService.js',
+    'src/services/AlertService.js',
+    'src/services/AuthService.js',
+    'src/services/index.js',
+    'src/services/notifications/NotificationStrategy.js',
+    'src/services/notifications/NotificationService.js',
+];
+
+log('info', 'Checking required service files...');
+requiredServiceFiles.forEach(file => {
+    if (fs.existsSync(path.join(rootDir, file))) {
+        log('success', `Service file exists: ${file}`);
+    } else {
+        log('error', `Missing service file: ${file}`);
+    }
+});
+
+// ─── 3. Naming Conventions (PascalCase for Views and Components) ─────────────
 const uiDirs = ['src/components', 'src/views'];
 uiDirs.forEach(dir => {
     const fullPath = path.join(rootDir, dir);
@@ -63,22 +95,29 @@ uiDirs.forEach(dir => {
     });
 });
 
-// 3. Import Boundaries and Service Isolation
+// ─── 4. Import Boundaries and Service Isolation ──────────────────────────────
 function checkImports(filePath) {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
     const isComponent = filePath.includes('src/components');
+    const isView = filePath.includes('src/views');
     const fileName = path.basename(filePath);
 
     lines.forEach((line, index) => {
-        // Direct Supabase imports check
+        // Direct Supabase client imports should only be in lib/supabase.js and BaseService.js
         if (line.includes("from '@supabase/supabase-js'") && !filePath.endsWith('supabase.js')) {
             log('error', `Service isolation violation in ${fileName}:${index + 1}`, 'Import from @supabase/supabase-js should only happen in src/lib/supabase.js');
         }
 
-        // Component importing View check
-        if (isComponent && line.includes("from '../views/") || line.includes('from "../views/')) {
+        // Components should not import from views
+        if (isComponent && (line.includes("from '../views/") || line.includes('from "../views/'))) {
             log('error', `Circular dependency risk in ${fileName}:${index + 1}`, 'Components should not import from views.');
+        }
+
+        // Views should not import directly from lib/supabase (use services instead)
+        // Only warn — some legacy code may still do this
+        if (isView && line.includes("from '../lib/supabase'")) {
+            log('warn', `Direct Supabase access in view ${fileName}:${index + 1}`, 'Views should use service layer instead of direct Supabase imports. Consider migrating to services/.');
         }
     });
 }
@@ -100,7 +139,38 @@ if (fs.existsSync(path.join(rootDir, 'src'))) {
     });
 }
 
-// 4. Environment Audit
+// ─── 5. OOP Pattern Checks ──────────────────────────────────────────────────
+log('info', 'Checking OOP patterns in service layer...');
+requiredServiceFiles.filter(f => f !== 'src/services/index.js').forEach(file => {
+    const fullPath = path.join(rootDir, file);
+    if (!fs.existsSync(fullPath)) return;
+
+    const content = fs.readFileSync(fullPath, 'utf8');
+
+    // Check for class export
+    if (!content.includes('export class') && !content.includes('export {')) {
+        log('warn', `No class export found in ${file}`, 'Service files should export a class following OOP patterns.');
+    }
+
+    // Check for JSDoc documentation
+    if (!content.includes('/**')) {
+        log('warn', `Missing JSDoc in ${file}`, 'Service files should include JSDoc documentation.');
+    }
+});
+
+// ─── 6. Loose SQL File Check ─────────────────────────────────────────────────
+log('info', 'Checking for loose SQL files at project root...');
+const rootFiles = fs.readdirSync(rootDir);
+const looseSqlFiles = rootFiles.filter(f => f.endsWith('.sql'));
+if (looseSqlFiles.length > 0) {
+    looseSqlFiles.forEach(f => {
+        log('warn', `Loose SQL file at root: ${f}`, 'SQL files should be in supabase/migrations/ with timestamp prefixes.');
+    });
+} else {
+    log('success', 'No loose SQL files at project root');
+}
+
+// ─── 7. Environment Audit ────────────────────────────────────────────────────
 const envPath = path.join(rootDir, '.env');
 const envExamplePath = path.join(rootDir, '.env.example');
 
@@ -122,6 +192,7 @@ if (fs.existsSync(envExamplePath)) {
     }
 }
 
+// ─── Summary ─────────────────────────────────────────────────────────────────
 console.log('\n--- Architecture Validation Summary ---');
 console.log(`${colors.bold}Errors:${colors.reset} ${errors > 0 ? colors.red : colors.green}${errors}${colors.reset}`);
 console.log(`${colors.bold}Warnings:${colors.reset} ${warnings > 0 ? colors.yellow : colors.green}${warnings}${colors.reset}`);

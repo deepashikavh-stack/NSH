@@ -35,7 +35,7 @@ const VehiclesView = () => {
     const fetchEntries = async () => {
         const { data, error } = await supabase
             .from('vehicle_entries')
-            .select('*')
+            .select('id, vehicle_number, vehicle_type, driver_name, is_sbu_vehicle, purpose, entry_time, exit_time, status')
             .order('entry_time', { ascending: false });
         if (data) setEntries(data);
     };

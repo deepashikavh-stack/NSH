@@ -29,7 +29,7 @@ const ExternalApprovalView = () => {
         try {
             const { data, error } = await supabase
                 .from('scheduled_meetings')
-                .select('*')
+                .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, meeting_role, start_time, end_time, status, visitor_category, approval_token, approval_token_used, created_at, google_event_id, telegram_chat_id, telegram_message_id')
                 .eq('approval_token', token)
                 .single();
 
@@ -38,11 +38,19 @@ const ExternalApprovalView = () => {
             } else if (data.status === 'Scheduled' || data.status === 'Confirmed' || data.approval_token_used) {
                 setStatus('used');
             } else {
-                setVisitor(data);
-                setStatus('authorized');
+                // Check token expiration (24 hours)
+                const createdAt = new Date(data.created_at);
+                const now = new Date();
+                const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60);
+                if (hoursSinceCreation > 24) {
+                    setStatus('expired');
+                } else {
+                    setVisitor(data);
+                    setStatus('authorized');
+                }
             }
         } catch (err) {
-            console.error(err);
+            if (import.meta.env.DEV) console.error(err);
             setStatus('invalid');
         } finally {
             setLoading(false);

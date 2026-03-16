@@ -1,48 +1,174 @@
+import { supabase } from './supabase';
+
 /**
- * NGS Agent Automation Utility
- * This simulates the backend agent logic for auto-confirming entries
- * based on predefined rules.
+ * EntryAgent — Abstract base class for automated entry validation.
+ * 
+ * Implements the Template Method pattern where subclasses provide
+ * domain-specific validation logic while the base class manages
+ * the validation lifecycle (validate → decide → respond).
+ * 
+ * Design Patterns:
+ *  - Template Method: validate() calls abstract _performValidation()
+ *  - Strategy: Different agent types for different entry scenarios
  */
+export class EntryAgent {
+    /**
+     * @param {string} agentType — 'Staff' | 'Visitor' | 'Vehicle'
+     */
+    constructor(agentType) {
+        if (new.target === EntryAgent) {
+            throw new Error('EntryAgent is abstract. Use StaffEntryAgent or VisitorEntryAgent.');
+        }
+        this.agentType = agentType;
+        this.client = supabase;
+    }
 
-export const validateStaffEntry = async (staffId) => {
-    // Simulating a database lookup and rule check
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // In a real app, this would check against the 'staff_entries' or 'employees' table
-            const validIds = ['EMP001', 'EMP002', 'EMP042', 'EMP100'];
+    /**
+     * Public validation entry point — Template Method.
+     * @param {Object} entryData — Domain-specific entry data
+     * @returns {Promise<{ status: string, message: string, details: Object|null }>}
+     */
+    async validate(entryData) {
+        try {
+            const result = await this._performValidation(entryData);
+            return {
+                status: result.status,
+                message: result.message,
+                details: result.details || null,
+                agentType: this.agentType,
+                timestamp: new Date().toISOString(),
+            };
+        } catch (error) {
+            return {
+                status: 'Error',
+                message: `Validation failed: ${error.message}`,
+                details: null,
+                agentType: this.agentType,
+                timestamp: new Date().toISOString(),
+            };
+        }
+    }
 
-            if (validIds.includes(staffId)) {
-                resolve({
-                    status: 'Auto-confirmed',
-                    message: 'Employee verified. Entry logged.',
-                    details: { name: 'Verified Staff Member', role: 'Staff' }
-                });
-            } else {
-                resolve({
-                    status: 'Exception',
-                    message: 'Employee ID not found. Routing to manual approval.',
-                    details: null
-                });
+    /**
+     * Abstract — Must be implemented by subclasses.
+     * @param {Object} entryData
+     * @returns {Promise<{ status: string, message: string, details?: Object }>}
+     */
+    async _performValidation(entryData) {
+        throw new Error(`${this.constructor.name}: _performValidation() not implemented`);
+    }
+}
+
+/**
+ * StaffEntryAgent — Validates staff entries against the employee database.
+ */
+export class StaffEntryAgent extends EntryAgent {
+    constructor() {
+        super('Staff');
+    }
+
+    async _performValidation(entryData) {
+        const { staffId } = entryData;
+
+        if (!staffId) {
+            return {
+                status: 'Exception',
+                message: 'Staff ID is required for validation.',
+            };
+        }
+
+        // Check against the employees/staff_entries table
+        const { data: employee, error } = await this.client
+            .from('users')
+            .select('id, username, full_name, role')
+            .eq('username', staffId)
+            .maybeSingle();
+
+        if (error) {
+            console.error('StaffEntryAgent: database lookup failed:', error);
+            return {
+                status: 'Exception',
+                message: 'Unable to verify employee. Please try manual approval.',
+            };
+        }
+
+        if (employee) {
+            return {
+                status: 'Auto-confirmed',
+                message: 'Employee verified. Entry logged.',
+                details: {
+                    name: employee.full_name,
+                    role: employee.role,
+                    id: employee.id,
+                },
+            };
+        }
+
+        return {
+            status: 'Exception',
+            message: 'Employee ID not found. Routing to manual approval.',
+        };
+    }
+}
+
+/**
+ * VisitorEntryAgent — Validates visitor entries against scheduled meetings.
+ */
+export class VisitorEntryAgent extends EntryAgent {
+    constructor() {
+        super('Visitor');
+    }
+
+    async _performValidation(entryData) {
+        const { type, name, nicPassport } = entryData;
+
+        if (type === 'Pre-registered' && nicPassport) {
+            // Check for a matching scheduled meeting today
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            const { data: meeting, error } = await this.client
+                .from('scheduled_meetings')
+                .select('id, visitor_name, meeting_with, start_time, end_time, status')
+                .eq('meeting_date', todayStr)
+                .in('status', ['Scheduled', 'Approved'])
+                .ilike('visitor_name', `%${name}%`)
+                .maybeSingle();
+
+            if (error) {
+                console.error('VisitorEntryAgent: database lookup failed:', error);
             }
-        }, 800);
-    });
-};
 
-export const validateVisitorEntry = async (visitorData) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // Rule: Pre-registered visitors with matching ID are auto-approved
-            if (visitorData.type === 'Pre-registered' && visitorData.id) {
-                resolve({
+            if (meeting) {
+                return {
                     status: 'Auto-confirmed',
-                    message: 'Pre-registered visitor match found.'
-                });
-            } else {
-                resolve({
-                    status: 'Pending',
-                    message: 'Manual confirmation required for walk-in/non-matched visitor.'
-                });
+                    message: 'Pre-registered visitor match found.',
+                    details: {
+                        meetingId: meeting.id,
+                        meetingWith: meeting.meeting_with,
+                        timeSlot: `${meeting.start_time} - ${meeting.end_time}`,
+                    },
+                };
             }
-        }, 1000);
-    });
-};
+        }
+
+        return {
+            status: 'Pending',
+            message: 'Manual confirmation required for walk-in/non-matched visitor.',
+        };
+    }
+}
+
+// ─── Convenience exports (backward-compatible) ──────────────────────────────
+
+const staffAgent = new StaffEntryAgent();
+const visitorAgent = new VisitorEntryAgent();
+
+/**
+ * @deprecated Use `new StaffEntryAgent().validate()` instead.
+ */
+export const validateStaffEntry = (staffId) => staffAgent.validate({ staffId });
+
+/**
+ * @deprecated Use `new VisitorEntryAgent().validate()` instead.
+ */
+export const validateVisitorEntry = (visitorData) => visitorAgent.validate(visitorData);

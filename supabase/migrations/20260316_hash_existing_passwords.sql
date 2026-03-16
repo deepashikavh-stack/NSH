@@ -1,0 +1,55 @@
+-- ============================================
+-- Hash Existing Plaintext Passwords
+-- ============================================
+-- 
+-- IMPORTANT: PostgreSQL does not natively support bcrypt.
+-- You need to run this one-time Node.js script INSTEAD of this SQL:
+--
+-- 1. Create a file called hash_passwords.js:
+--
+--   const { createClient } = require('@supabase/supabase-js');
+--   const bcrypt = require('bcryptjs');
+--
+--   const supabase = createClient(
+--     process.env.VITE_SUPABASE_URL,
+--     process.env.VITE_SUPABASE_ANON_KEY
+--   );
+--
+--   async function hashAllPasswords() {
+--     const { data: users, error } = await supabase
+--       .from('users')
+--       .select('id, email, password');
+--
+--     if (error) { console.error(error); return; }
+--
+--     for (const user of users) {
+--       // Skip if password already looks hashed (starts with $2a$ or $2b$)
+--       if (user.password && user.password.startsWith('$2')) {
+--         console.log(`Skipping ${user.email} - already hashed`);
+--         continue;
+--       }
+--
+--       const hashed = await bcrypt.hash(user.password || 'Welcome@1234', 10);
+--       const { error: updateError } = await supabase
+--         .from('users')
+--         .update({ password: hashed })
+--         .eq('id', user.id);
+--
+--       if (updateError) {
+--         console.error(`Failed to update ${user.email}:`, updateError);
+--       } else {
+--         console.log(`Hashed password for ${user.email}`);
+--       }
+--     }
+--     console.log('Done!');
+--   }
+--
+--   hashAllPasswords();
+--
+-- 2. Run it:
+--   source ~/.nvm/nvm.sh && node hash_passwords.js
+--
+-- This will hash all existing plaintext passwords in-place.
+-- After running, users can log in with their existing passwords
+-- (now verified via bcrypt).
+-- ============================================
