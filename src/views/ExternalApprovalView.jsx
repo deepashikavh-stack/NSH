@@ -22,32 +22,32 @@ const ExternalApprovalView = () => {
     const [syncToCalendar, setSyncToCalendar] = useState(true);
 
     useEffect(() => {
+        const fetchVisitor = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('scheduled_meetings')
+                    .select('*')
+                    .eq('approval_token', token)
+                    .single();
+
+                if (error || !data) {
+                    setStatus('invalid');
+                } else if (data.status === 'Scheduled' || data.status === 'Confirmed' || data.approval_token_used) {
+                    setStatus('used');
+                } else {
+                    setVisitor(data);
+                    setStatus('authorized');
+                }
+            } catch (err) {
+                console.error(err);
+                setStatus('invalid');
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchVisitor();
     }, [token]);
-
-    const fetchVisitor = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('scheduled_meetings')
-                .select('*')
-                .eq('approval_token', token)
-                .single();
-
-            if (error || !data) {
-                setStatus('invalid');
-            } else if (data.status === 'Scheduled' || data.status === 'Confirmed' || data.approval_token_used) {
-                setStatus('used');
-            } else {
-                setVisitor(data);
-                setStatus('authorized');
-            }
-        } catch (err) {
-            console.error(err);
-            setStatus('invalid');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleConfirm = async () => {
         setSubmitting(true);

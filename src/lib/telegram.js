@@ -184,21 +184,15 @@ export const answerCallbackQuery = async (callbackQueryId, text = null) => {
 };
 
 export const getTelegramUpdates = async (offset = null) => {
-    const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-    if (!token) return { updates: [], maxUpdateId: 0 };
-
     try {
-        const params = new URLSearchParams({
-            timeout: '0',
-            allowed_updates: JSON.stringify(["callback_query", "message"])
-        });
-        if (offset) params.append('offset', offset);
+        const { data, error } = await supabase.rpc('get_telegram_updates', offset ? { offset_val: offset.toString() } : {});
+        
+        if (error) {
+            console.error("RPC Error fetching Telegram updates:", error);
+            return { updates: [], maxUpdateId: 0 };
+        }
 
-        const url = `https://api.telegram.org/bot${token}/getUpdates?${params.toString()}`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.ok && data.result.length > 0) {
+        if (data && data.ok && data.result.length > 0) {
             const maxUpdateId = Math.max(...data.result.map(u => u.update_id));
 
             const updates = data.result.map(update => {

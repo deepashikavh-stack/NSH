@@ -79,7 +79,7 @@ const BRANCH_REQUIRED_COMPANIES = [
     "Dream Team Media (Private) Limited"
 ];
 
-const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
+const VisitorSelfCheckIn = ({ onClose }) => {
     const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();

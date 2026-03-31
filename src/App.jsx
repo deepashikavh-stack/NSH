@@ -1,21 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
-import DashboardView from './views/DashboardView';
-import VehiclesView from './views/VehiclesView';
-import ReportsView from './views/ReportsView';
-import ScheduledMeetingsView from './views/ScheduledMeetingsView';
-import UserManagementView from './views/UserManagementView';
 import VisitorTypeSelection from './views/VisitorTypeSelection';
 import LoginPage from './views/LoginPage';
 import VisitorSelfCheckIn from './components/VisitorSelfCheckIn';
 import VisitorCheckOut from './components/VisitorCheckOut';
 import SettingsView from './views/SettingsView';
-import AuditTrailView from './views/AuditTrailView';
 import ExternalApprovalView from './views/ExternalApprovalView';
 import PublicMeetingRequestView from './views/PublicMeetingRequestView';
+
+const DashboardView = lazy(() => import('./views/DashboardView'));
+const VehiclesView = lazy(() => import('./views/VehiclesView'));
+const ReportsView = lazy(() => import('./views/ReportsView'));
+const ScheduledMeetingsView = lazy(() => import('./views/ScheduledMeetingsView'));
+const UserManagementView = lazy(() => import('./views/UserManagementView'));
+const AuditTrailView = lazy(() => import('./views/AuditTrailView'));
 import { ArrowLeft } from 'lucide-react';
 import { AlertProvider } from './context/AlertContext';
 import { logAudit } from './lib/audit';
@@ -193,28 +194,36 @@ function AppContent() {
             flex: 1,
             padding: (user && !isStandalone && !isMobile) ? '0 1.5rem 1.5rem 0' : '0'
           }}>
-            <Routes>
-              <Route path="/" element={<VisitorTypeSelection />} />
-              <Route path="/login" element={<LoginPage onLogin={handleLogin} onBack={() => navigate('/')} />} />
+            <Suspense fallback={
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100%' }}>
+                <div style={{ padding: '1.5rem', borderRadius: '16px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1px solid var(--glass-border)' }}>
+                  Loading Experience...
+                </div>
+              </div>
+            }>
+              <Routes>
+                <Route path="/" element={<VisitorTypeSelection />} />
+                <Route path="/login" element={<LoginPage onLogin={handleLogin} onBack={() => navigate('/')} />} />
 
-              {/* Protected Routes */}
-              <Route path="/dashboard" element={<DashboardView user={user} />} />
-              <Route path="/scheduled-meetings" element={<ScheduledMeetingsView />} />
-              <Route path="/vehicles" element={<VehiclesView />} />
-              <Route path="/reports" element={<ReportsView user={user} />} />
-              <Route path="/audit-trail" element={<AuditTrailView />} />
-              <Route path="/user-management" element={<UserManagementView />} />
-              <Route path="/settings" element={<SettingsView user={user} onUpdateUser={handleUpdateUser} />} />
+                {/* Protected Routes */}
+                <Route path="/dashboard" element={<DashboardView user={user} />} />
+                <Route path="/scheduled-meetings" element={<ScheduledMeetingsView />} />
+                <Route path="/vehicles" element={<VehiclesView />} />
+                <Route path="/reports" element={<ReportsView user={user} />} />
+                <Route path="/audit-trail" element={<AuditTrailView />} />
+                <Route path="/user-management" element={<UserManagementView />} />
+                <Route path="/settings" element={<SettingsView user={user} onUpdateUser={handleUpdateUser} />} />
 
-              {/* Kiosk Routes */}
-              <Route path="/kiosk/check-in" element={<VisitorSelfCheckIn />} />
-              <Route path="/kiosk/check-out" element={<VisitorCheckOut />} />
-              <Route path="/kiosk/vehicles" element={<VehiclesView />} />
-              <Route path="/approve/:token" element={<ExternalApprovalView />} />
-              <Route path="/request-meeting" element={<PublicMeetingRequestView />} />
+                {/* Kiosk Routes */}
+                <Route path="/kiosk/check-in" element={<VisitorSelfCheckIn />} />
+                <Route path="/kiosk/check-out" element={<VisitorCheckOut />} />
+                <Route path="/kiosk/vehicles" element={<VehiclesView />} />
+                <Route path="/approve/:token" element={<ExternalApprovalView />} />
+                <Route path="/request-meeting" element={<PublicMeetingRequestView />} />
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
           </div>
         </main>
       </div>
