@@ -29,7 +29,7 @@ const LandingPage = ({ onNavigate, onLogin }) => {
                     <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
                         <img src="/logo.png" alt="NGS Logo" style={{ width: '50px', height: 'auto' }} />
                     </div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>Nextgen Shield</h1>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>Nextgen Shield (Private) Limited</h1>
                 </div>
                 <button
                     onClick={onLogin}

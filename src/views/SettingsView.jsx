@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Lock, Save, ShieldCheck, UserCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { verifyPassword, hashPassword, validatePasswordStrength } from '../utils/passwordUtils';
@@ -13,6 +13,23 @@ const SettingsView = ({ user, onUpdateUser }) => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [passwordErrors, setPasswordErrors] = useState([]);
+
+    // Fallback: If the session doesn't have an ID (e.g. from an old login), fetch it
+    useEffect(() => {
+        if (user && !user.id) {
+            const fetchId = async () => {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('email', user.username || user.email)
+                    .single();
+                if (data && !error) {
+                    onUpdateUser({ ...user, id: data.id });
+                }
+            };
+            fetchId();
+        }
+    }, [user, onUpdateUser]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -40,7 +57,7 @@ const SettingsView = ({ user, onUpdateUser }) => {
                 const { data: userData, error: fetchError } = await supabase
                     .from('users')
                     .select('password')
-                    .eq('email', user?.username || user?.email)
+                    .eq('id', user.id)
                     .single();
 
                 if (fetchError || !userData) {
@@ -61,10 +78,18 @@ const SettingsView = ({ user, onUpdateUser }) => {
                 const { error: updateError } = await supabase
                     .from('users')
                     .update({ password: hashedNew })
-                    .eq('email', user?.username || user?.email);
+                    .eq('id', user.id);
 
                 if (updateError) throw updateError;
             }
+
+            // Also update other profile info in the database (email/username field)
+            const { error: profileError } = await supabase
+                .from('users')
+                .update({ email: formData.username })
+                .eq('id', user.id);
+
+            if (profileError) throw profileError;
 
             const updatedUser = { ...user, username: formData.username };
             onUpdateUser(updatedUser);
@@ -73,7 +98,8 @@ const SettingsView = ({ user, onUpdateUser }) => {
             setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
             setPasswordErrors([]);
         } catch (err) {
-            setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+            console.error('Settings update error:', err);
+            setMessage({ type: 'error', text: `Failed to update profile: ${err.message || 'Please try again.'}` });
         } finally {
             setLoading(false);
         }
@@ -222,6 +248,11 @@ const SettingsView = ({ user, onUpdateUser }) => {
                             textAlign: 'center'
                         }}>
                             {message.text}
+                            {passwordErrors.length > 0 && (
+                                <ul style={{ marginTop: '0.5rem', textAlign: 'left', listStyle: 'none', padding: 0 }}>
+                                    {passwordErrors.map((err, i) => <li key={i}>• {err}</li>)}
+                                </ul>
+                            )}
                         </div>
                     )}
 

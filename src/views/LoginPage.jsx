@@ -86,7 +86,7 @@ const LoginPage = ({ onLogin, onBack }) => {
             const isValid = await verifyPassword(password, user.password);
             if (isValid) {
                 logAudit('Login', 'users', null, username, { role: selectedUser.role, name: selectedUser.full_name });
-                onLogin({ username, role: selectedUser.role, full_name: selectedUser.full_name });
+                onLogin({ id: selectedUser.id, username, role: selectedUser.role, full_name: selectedUser.full_name });
             } else {
                 alert('Invalid credentials');
             }
@@ -200,7 +200,7 @@ const LoginPage = ({ onLogin, onBack }) => {
                     <div style={{ display: 'inline-flex', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '24px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
                         <img src="/logo.png" alt="NGS Logo" style={{ width: '60px', height: 'auto' }} />
                     </div>
-                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{t('login.title')}</h2>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{t('login.title')}</h2>
                     <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{t('login.subtitle')}</p>
                 </div>
 
@@ -216,19 +216,19 @@ const LoginPage = ({ onLogin, onBack }) => {
                                 padding: '1rem',
                                 borderRadius: '14px',
                                 border: '1px solid var(--glass-border)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                                color: '#fff',
+                                backgroundColor: 'var(--glass-bg)',
+                                color: 'var(--text-main)',
                                 fontWeight: 600,
                                 outline: 'none'
                             }}
                         >
                             {loading ? (
-                                <option style={{ backgroundColor: '#1a1d21' }}>{t('kiosk.loading_users')}</option>
+                                <option style={{ backgroundColor: 'var(--background)' }}>{t('kiosk.loading_users')}</option>
                             ) : users.length === 0 ? (
-                                <option style={{ backgroundColor: '#1a1d21' }}>{t('kiosk.no_users')}</option>
+                                <option style={{ backgroundColor: 'var(--background)' }}>{t('kiosk.no_users')}</option>
                             ) : (
                                 users.map(user => (
-                                    <option key={user.id} value={user.email} style={{ backgroundColor: '#1a1d21' }}>
+                                    <option key={user.id} value={user.email} style={{ backgroundColor: 'var(--background)', color: 'var(--text-main)' }}>
                                         {user.full_name} ({t(`roles.${user.role.toLowerCase().replace(/ /g, '_')}`)})
                                     </option>
                                 ))
@@ -250,8 +250,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                                     padding: '1rem 1rem 1rem 3rem',
                                     borderRadius: '14px',
                                     border: '1px solid var(--glass-border)',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                                    color: '#fff',
+                                    backgroundColor: 'var(--glass-bg)',
+                                    color: 'var(--text-main)',
                                     fontWeight: 600,
                                     outline: 'none'
                                 }}
@@ -273,8 +273,8 @@ const LoginPage = ({ onLogin, onBack }) => {
                                     padding: '1rem 1rem 1rem 3rem',
                                     borderRadius: '14px',
                                     border: '1px solid var(--glass-border)',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                                    color: '#fff',
+                                    backgroundColor: 'var(--glass-bg)',
+                                    color: 'var(--text-main)',
                                     fontWeight: 600,
                                     outline: 'none'
                                 }}
@@ -412,6 +412,13 @@ const LoginPage = ({ onLogin, onBack }) => {
                                         }}
                                     />
                                 </div>
+                                {passwordErrors.length > 0 && (
+                                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '10px', fontSize: '0.75rem', color: '#ef4444' }}>
+                                        <ul style={{ listStyle: 'none', padding: 0 }}>
+                                            {passwordErrors.map((err, i) => <li key={i}>• {err}</li>)}
+                                        </ul>
+                                    </div>
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>

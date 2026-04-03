@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, LogOut, CheckCircle, XCircle, ArrowRight, Loader } from 'lucide-react';
+import { Search, LogOut, CheckCircle, XCircle, ArrowRight, Loader, Sun, Moon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const VisitorCheckOut = () => {
+const VisitorCheckOut = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
     const [idNumber, setIdNumber] = useState('');
     const [status, setStatus] = useState('idle'); // idle, searching, found, success, error
@@ -83,7 +83,7 @@ const VisitorCheckOut = () => {
             left: 0,
             width: '100vw',
             height: '100vh',
-            backgroundColor: '#0a0c10',
+            backgroundColor: 'var(--background)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
@@ -92,6 +92,12 @@ const VisitorCheckOut = () => {
             backdropFilter: 'blur(100px)'
         }}>
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.2)', zIndex: -1 }}></div>
+            {/* Theme Toggle */}
+            <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 10000, display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button onClick={toggleTheme} style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-main)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
+                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+            </div>
             {children}
         </div>
     );
@@ -99,14 +105,14 @@ const VisitorCheckOut = () => {
     if (status === 'success') {
         return (
             <FullScreenContainer>
-                <div className="card animate-fade-in" style={{ padding: '3rem', textAlign: 'center', maxWidth: '500px', width: '90%', backgroundColor: '#1E293B', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                <div className="card animate-fade-in" style={{ padding: '3rem', textAlign: 'center', maxWidth: '500px', width: '90%', backgroundColor: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                     <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'center' }}>
                         <div className="animate-bounce-in" style={{ padding: '1.5rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%' }}>
                             <CheckCircle size={64} color="#10B981" />
                         </div>
                     </div>
                     <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#10B981', marginBottom: '1rem' }}>Successfully Checked Out</h2>
-                    <p style={{ color: '#94a3b8', fontSize: '1.125rem' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1.125rem' }}>
                         Goodbye, <strong>{visitor.name}</strong>!<br />Thank you for visiting Nextgen Shield.
                     </p>
                 </div>
@@ -117,8 +123,8 @@ const VisitorCheckOut = () => {
     return (
         <FullScreenContainer>
             <div className="card animate-fade-in" style={{
-                width: '100%', maxWidth: '500px', backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                backdropFilter: 'blur(25px)', WebkitBackdropFilter: 'blur(25px)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                width: '100%', maxWidth: '500px', backgroundColor: 'var(--glass-bg)',
+                backdropFilter: 'blur(25px)', WebkitBackdropFilter: 'blur(25px)', border: '1px solid var(--glass-border)',
                 borderRadius: '32px', padding: '3rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                 display: 'flex', flexDirection: 'column', gap: '2rem', position: 'relative'
             }}>
@@ -130,8 +136,8 @@ const VisitorCheckOut = () => {
                     }}>
                         <LogOut size={40} color="#3b82f6" />
                     </div>
-                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>Check Out</h2>
-                    <p style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Enter your ID to complete your visit</p>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>Check Out</h2>
+                    <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Enter your ID to complete your visit</p>
                 </div>
 
                 {status !== 'found' ? (
@@ -167,9 +173,9 @@ const VisitorCheckOut = () => {
                 ) : (
                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div style={{ padding: '1.5rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Visitor Found</div>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>{visitor.name}</div>
-                            <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem' }}>Arrival: {new Date(visitor.entry_time).toLocaleTimeString()}</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Visitor Found</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>{visitor.name}</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Arrival: {new Date(visitor.entry_time).toLocaleTimeString()}</div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -177,8 +183,8 @@ const VisitorCheckOut = () => {
                                 type="button"
                                 onClick={() => setStatus('idle')}
                                 style={{
-                                    padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px',
-                                    color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 700, cursor: 'pointer'
+                                    padding: '1rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px',
+                                    color: 'var(--text-main)', border: '1px solid var(--glass-border)', fontWeight: 700, cursor: 'pointer'
                                 }}
                             >
                                 BACK
@@ -198,7 +204,7 @@ const VisitorCheckOut = () => {
 
                 <button
                     onClick={() => navigate('/')}
-                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'underline' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'underline' }}
                 >
                     Cancel and Return to Home
                 </button>

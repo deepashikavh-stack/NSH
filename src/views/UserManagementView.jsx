@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Users, Plus, Edit, Trash2, Search, X, Shield, Mail, User as UserIcon, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Search, X, Shield, Mail, User as UserIcon, CheckCircle, XCircle, Key, RefreshCw, Eye, EyeOff, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import { hashPassword } from '../utils/passwordUtils';
@@ -18,8 +18,11 @@ const UserManagementView = () => {
     const [formData, setFormData] = useState({
         email: '',
         full_name: '',
-        role: 'Security Officer'
+        role: 'Security Officer',
+        password: ''
     });
+    const [passwordVisible, setPasswordVisible] = useState(false);
+    const [isResetMode, setIsResetMode] = useState(false);
 
     const roles = ['Admin', 'Security Officer', 'Security HOD', 'School Management', 'School Operations'];
 
@@ -45,19 +48,53 @@ const UserManagementView = () => {
         }
     };
 
+    const generateRandomPassword = () => {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let retVal = "";
+        for (let i = 0, n = charset.length; i < 12; ++i) {
+            retVal += charset.charAt(Math.floor(Math.random() * n));
+        }
+        // Ensure at least one of each for the strength check
+        const hasUpper = /[A-Z]/.test(retVal);
+        const hasLower = /[a-z]/.test(retVal);
+        const hasDigit = /[0-9]/.test(retVal);
+        const hasSpecial = /[!@#$%^&*]/.test(retVal);
+        
+        if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) return generateRandomPassword();
+        
+        setFormData(prev => ({ ...prev, password: retVal }));
+        setPasswordVisible(true);
+    };
+
     const handleCreate = () => {
         setModalMode('create');
-        setFormData({ email: '', full_name: '', role: 'Security Officer' });
+        setIsResetMode(false);
+        setFormData({ email: '', full_name: '', role: 'Security Officer', password: '' });
         setShowModal(true);
     };
 
     const handleEdit = (user) => {
         setModalMode('edit');
+        setIsResetMode(false);
         setSelectedUser(user);
         setFormData({
             email: user.email,
             full_name: user.full_name,
-            role: user.role
+            role: user.role,
+            password: ''
+        });
+        setShowModal(true);
+    };
+
+    const handleResetPassword = (user) => {
+        setModalMode('edit');
+        setIsResetMode(true);
+        setSelectedUser(user);
+        setFormData({
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role,
+            password: ''
         });
         setShowModal(true);
     };
@@ -68,8 +105,12 @@ const UserManagementView = () => {
 
         try {
             if (modalMode === 'create') {
-                // Hash a default password for new users
-                const defaultPassword = await hashPassword('Welcome@1234');
+                if (!formData.password) {
+                    alert('Please enter or generate a password');
+                    setLoading(false);
+                    return;
+                }
+                const hashedPassword = await hashPassword(formData.password);
                 const { error } = await supabase
                     .from('users')
                     .insert({
@@ -77,23 +118,29 @@ const UserManagementView = () => {
                         full_name: formData.full_name,
                         role: formData.role,
                         is_active: true,
-                        password: defaultPassword
+                        password: hashedPassword
                     });
 
                 if (error) throw error;
                 alert('User created successfully!');
             } else {
+                const updateData = {
+                    email: formData.email,
+                    full_name: formData.full_name,
+                    role: formData.role
+                };
+
+                if (isResetMode && formData.password) {
+                    updateData.password = await hashPassword(formData.password);
+                }
+
                 const { error } = await supabase
                     .from('users')
-                    .update({
-                        email: formData.email,
-                        full_name: formData.full_name,
-                        role: formData.role
-                    })
+                    .update(updateData)
                     .eq('id', selectedUser.id);
 
                 if (error) throw error;
-                alert('User updated successfully!');
+                alert(isResetMode ? 'Password reset successfully!' : 'User updated successfully!');
             }
 
             setShowModal(false);
@@ -283,6 +330,20 @@ const UserManagementView = () => {
                                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                                 <button
+                                                    onClick={() => handleResetPassword(user)}
+                                                    title="Reset Password"
+                                                    style={{
+                                                        padding: '0.5rem',
+                                                        backgroundColor: 'rgba(245,158,11,0.1)',
+                                                        border: '1px solid rgba(245,158,11,0.2)',
+                                                        borderRadius: '8px',
+                                                        color: '#f59e0b',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <Key size={16} />
+                                                </button>
+                                                <button
                                                     onClick={() => handleEdit(user)}
                                                     style={{
                                                         padding: '0.5rem',
@@ -336,7 +397,7 @@ const UserManagementView = () => {
                     <div className="modal-content-wrapper animate-fade-in-static">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                                {modalMode === 'create' ? t('user_management.modal.create_title') : t('user_management.modal.edit_title')}
+                                {isResetMode ? 'Reset User Password' : (modalMode === 'create' ? t('user_management.modal.create_title') : t('user_management.modal.edit_title'))}
                             </h3>
                             <button onClick={() => setShowModal(false)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '8px' }}>
                                 <X size={20} />
@@ -415,6 +476,66 @@ const UserManagementView = () => {
                                 </select>
                             </div>
 
+                            {(modalMode === 'create' || isResetMode) && (
+                                <div className="animate-fade-in">
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
+                                        <Lock size={14} style={{ display: 'inline', marginRight: '0.25rem' }} />
+                                        {isResetMode ? 'New Password' : 'Set User Password'}
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div style={{ position: 'relative', flex: 1 }}>
+                                            <input
+                                                type={passwordVisible ? "text" : "password"}
+                                                required
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                placeholder="Set a secure password"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.75rem 2.5rem 0.75rem 0.75rem',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid var(--glass-border)',
+                                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                                    color: 'var(--text-main)',
+                                                    outline: 'none',
+                                                    fontFamily: passwordVisible ? 'inherit' : 'monospace',
+                                                    letterSpacing: passwordVisible ? 'normal' : '0.25em'
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setPasswordVisible(!passwordVisible)}
+                                                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                            >
+                                                {passwordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={generateRandomPassword}
+                                            title="Generate Secure Password"
+                                            style={{
+                                                padding: '0 1rem',
+                                                borderRadius: '12px',
+                                                border: '1px solid var(--glass-border)',
+                                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                                color: 'var(--primary)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem'
+                                            }}
+                                        >
+                                            <RefreshCw size={14} /> Auto
+                                        </button>
+                                    </div>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                        Make sure to provide this password to the user once saved.
+                                    </p>
+                                </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                                 <button
                                     type="button"
@@ -437,7 +558,7 @@ const UserManagementView = () => {
                                     disabled={loading}
                                     style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', fontWeight: 700 }}
                                 >
-                                    {loading ? t('user_management.modal.saving') : modalMode === 'create' ? t('user_management.modal.save_create') : t('user_management.modal.save_edit')}
+                                    {loading ? t('user_management.modal.saving') : (isResetMode ? 'Update Password' : (modalMode === 'create' ? t('user_management.modal.save_create') : t('user_management.modal.save_edit')))}
                                 </button>
                             </div>
                         </form>

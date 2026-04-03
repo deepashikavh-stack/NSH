@@ -39,7 +39,7 @@ export class AlertService extends BaseService {
      * @returns {Promise<void>}
      */
     async generateSystemAlerts() {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toLocaleDateString('en-CA');
 
         try {
             await Promise.all([

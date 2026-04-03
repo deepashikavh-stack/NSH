@@ -10,14 +10,16 @@ import ReportsView from './views/ReportsView';
 import ScheduledMeetingsView from './views/ScheduledMeetingsView';
 import UserManagementView from './views/UserManagementView';
 import VisitorTypeSelection from './views/VisitorTypeSelection';
+import VisitorManagementView from './views/VisitorManagementView';
 import LoginPage from './views/LoginPage';
 import VisitorSelfCheckIn from './components/VisitorSelfCheckIn';
 import VisitorCheckOut from './components/VisitorCheckOut';
 import SettingsView from './views/SettingsView';
 import AuditTrailView from './views/AuditTrailView';
-import ExternalApprovalView from './views/ExternalApprovalView';
+
 import PublicMeetingRequestView from './views/PublicMeetingRequestView';
-import { ArrowLeft } from 'lucide-react';
+import AppointmentApprovalView from './views/AppointmentApprovalView';
+import { ArrowLeft, Sun, Moon } from 'lucide-react';
 import { AlertProvider } from './context/AlertContext';
 import { logAudit } from './lib/audit';
 import { syncTranslations } from './lib/translationSync';
@@ -81,8 +83,7 @@ function AppContent() {
     if (path && ['dashboard', 'scheduled-meetings', 'visitors', 'vehicles', 'reports', 'audit-trail', 'user-management', 'settings'].includes(path)) {
       setActiveTab(path);
     }
-  }, [location]);
-
+  }, [location, setActiveTab]);
   useEffect(() => {
     // Load Google API and Identity Services scripts
     const loadScript = (src) => {
@@ -126,15 +127,18 @@ function AppContent() {
     localStorage.setItem('ngs_user', JSON.stringify(updatedUser));
   };
 
+  const isVisitorSelection = location.pathname === '/';
   const isKioskMode = location.pathname.startsWith('/kiosk');
-  const isApprovalLink = location.pathname.startsWith('/approve');
+  const isApprovalLink = location.search.includes('approve_token=');
   const isPublicMeetingRequest = location.pathname === '/request-meeting';
+  const isAppointmentApproval = location.pathname === '/appointment-approval';
 
-  if (!user && !isKioskMode && !isApprovalLink && !isPublicMeetingRequest && location.pathname !== '/' && location.pathname !== '/login') {
+  if (!user && !isKioskMode && !isApprovalLink && !isPublicMeetingRequest && !isAppointmentApproval && location.pathname !== '/' && location.pathname !== '/login') {
     return <Navigate to="/" replace />;
   }
 
-  const isStandalone = isKioskMode || isApprovalLink || isPublicMeetingRequest;
+  // The approval link is now internal, so we don't want it to act as "standalone" (without sidebar/navbar)
+  const isStandalone = isVisitorSelection || isKioskMode || isPublicMeetingRequest || isAppointmentApproval;
 
   return (
     <AlertProvider user={user}>
@@ -185,7 +189,24 @@ function AppContent() {
                 <ArrowLeft size={20} /> {t('common.back_to_home', { defaultValue: 'Back to Home' })}
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '0.5rem', borderRadius: '10px' }}>
+                <button
+                  onClick={toggleTheme}
+                  style={{
+                    backgroundColor: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
+                    color: 'var(--text-main)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.5rem',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+                <div style={{ backgroundColor: 'var(--glass-bg)', padding: '0.5rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
                   <img src="/logo.png" alt="Logo" style={{ width: '24px', height: 'auto' }} />
                 </div>
                 <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>Nextgen Shield</span>
@@ -207,7 +228,7 @@ function AppContent() {
             padding: (user && !isStandalone && !isMobile) ? '0 1.5rem 1.5rem 0' : '0'
           }}>
             <Routes>
-              <Route path="/" element={<VisitorTypeSelection />} />
+              <Route path="/" element={<VisitorTypeSelection theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/login" element={<LoginPage onLogin={handleLogin} onBack={() => navigate('/')} />} />
 
               {/* Protected Routes — wrapped with role-based access control */}
@@ -225,6 +246,9 @@ function AppContent() {
                 <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/vehicles']}>
                   <VehiclesView />
                 </ProtectedRoute>
+              } />
+              <Route path="/visitors" element={
+                  <VisitorManagementView user={{ role: 'Admin' }} />
               } />
               <Route path="/reports" element={
                 <ProtectedRoute user={user} allowedRoles={ROUTE_PERMISSIONS['/reports']}>
@@ -248,11 +272,12 @@ function AppContent() {
               } />
 
               {/* Kiosk Routes */}
-              <Route path="/kiosk/check-in" element={<VisitorSelfCheckIn />} />
-              <Route path="/kiosk/check-out" element={<VisitorCheckOut />} />
+              <Route path="/kiosk/check-in" element={<VisitorSelfCheckIn theme={theme} toggleTheme={toggleTheme} />} />
+              <Route path="/kiosk/check-out" element={<VisitorCheckOut theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/kiosk/vehicles" element={<VehiclesView />} />
-              <Route path="/approve/:token" element={<ExternalApprovalView />} />
+
               <Route path="/request-meeting" element={<PublicMeetingRequestView />} />
+              <Route path="/appointment-approval" element={<AppointmentApprovalView />} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

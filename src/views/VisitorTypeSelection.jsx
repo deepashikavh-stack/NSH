@@ -1,8 +1,8 @@
 import React from 'react';
-import { Home, User, Building2, Users, LogOut } from 'lucide-react';
+import { Home, User, Building2, Users, LogOut, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const VisitorTypeSelection = () => {
+const VisitorTypeSelection = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
     const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
 
@@ -69,6 +69,28 @@ const VisitorTypeSelection = () => {
             <div style={{ position: 'fixed', top: '-10%', right: '-5%', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,140,0,0.08) 0%, transparent 70%)', filter: 'blur(120px)', zIndex: -1 }}></div>
             <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,71,121,0.08) 0%, transparent 70%)', filter: 'blur(120px)', zIndex: -1 }}></div>
 
+            {/* Controls - Top Right */}
+            <div style={{ position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 10000, display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button
+                    onClick={toggleTheme}
+                    style={{
+                        backgroundColor: 'var(--glass-bg)',
+                        border: '1px solid var(--glass-border)',
+                        color: 'var(--text-main)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.75rem',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: 'var(--shadow)'
+                    }}
+                >
+                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+            </div>
+
             {/* Header with Home Button */}
             <header style={{
                 width: '100%',
@@ -86,7 +108,7 @@ const VisitorTypeSelection = () => {
                     style={{
                         position: isMobile ? 'static' : 'absolute',
                         left: 0,
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        backgroundColor: 'var(--glass-bg)',
                         border: '1px solid var(--glass-border)',
                         color: 'var(--text-main)',
                         padding: '0.625rem 1rem',
@@ -106,11 +128,11 @@ const VisitorTypeSelection = () => {
                     Home
                 </button>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                     <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                        <img src="/logo.png" alt="NGS Logo" style={{ width: '50px', height: 'auto' }} />
+                        <img src="/logo.png" alt="NGS Logo" style={{ width: '40px', height: 'auto' }} />
                     </div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Nextgen Shield</h1>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Nextgen Shield (Private) Limited</h1>
                 </div>
             </header>
 

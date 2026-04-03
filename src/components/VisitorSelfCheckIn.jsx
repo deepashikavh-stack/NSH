@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, FileText, CheckCircle, XCircle, Search, ArrowRight, Loader, Calendar, Clock, MapPin } from 'lucide-react';
+import { User, FileText, CheckCircle, XCircle, Search, ArrowRight, Loader, Calendar, Clock, MapPin, Sun, Moon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { sendTelegramNotification } from '../lib/telegram';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -79,7 +79,7 @@ const BRANCH_REQUIRED_COMPANIES = [
     "Dream Team Media (Private) Limited"
 ];
 
-const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
+const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }) /* eslint-disable-line no-unused-vars */ => {
     const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -97,7 +97,9 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
         sbu: '',
         branch: '',
         meetingWith: '', // Derived from schedule
-        scheduledMeetingId: null
+        scheduledMeetingId: null,
+        requestedDate: new Date().toISOString().split('T')[0],
+        requestedTime: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     });
 
     // Approval Workflow State
@@ -193,74 +195,138 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
     }, [typeFromUrl]);
 
     const handleTypeSelect = (type) => {
-        setFormData({ ...formData, visitorType: type, isScheduled: false, visitors: [{ name: '', nic: '', contact: '' }], purpose: '', sbu: '', branch: '' });
+        const isScheduled = type === 'Pre-Scheduled Meeting';
+        setFormData({ 
+            ...formData, 
+            visitorType: isScheduled ? 'Other' : type, 
+            isScheduled: isScheduled, 
+            visitors: [{ name: '', nic: '', contact: '' }], 
+            purpose: '', 
+            sbu: '', 
+            branch: '' 
+        });
         setStep(2);
     };
 
+    const generateUUID = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
     const handleVerifySchedule = async () => {
-        const primaryNic = formData.visitors[0].nic;
+        const primaryNic = formData.visitors[0].nic?.trim();
         if (!primaryNic) return;
+
         setVerifying(true);
         setError(null);
         setScheduleMatch(null);
 
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const localNow = new Date();
+            const today = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`;
+
+            // Step 1 — Search by NIC only (no date filter) so approved meetings
+            // set for today show up regardless of when the request was submitted.
             const { data, error } = await supabase
                 .from('scheduled_meetings')
-                .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, visitor_category, approval_token')
-                .eq('visitor_nic', primaryNic)
-                .eq('meeting_date', today)
-                .in('status', ['Scheduled', 'Confirmed'])
-                .single();
+                .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, start_time, end_time, status, visitor_category, approval_token, request_source')
+                .ilike('visitor_nic', `%${primaryNic}%`)
+                .in('status', ['Scheduled', 'Confirmed', 'Approved'])
+                .order('created_at', { ascending: false })
+                .limit(5);
 
-            if (error && error.code !== 'PGRST116') {
-                throw error;
+            if (error) throw error;
+
+            console.log('[CheckIn] NIC lookup result:', data);
+
+            if (!data || data.length === 0) {
+                setError('No approved appointment found for this ID. If your appointment has not been approved yet, please wait or contact security.');
+                setVerifying(false);
+                return;
             }
 
-            if (data) {
-                // INSTANT CHECK-IN LOGIC
-                // Insert visitor entry
-                const { error: insertError } = await supabase
-                    .from('visitors')
-                    .insert({
-                        name: data.visitor_name,
-                        nic_passport: data.visitor_nic,
-                        contact: data.visitor_contact,
-                        type: formData.visitorType,
-                        purpose: data.purpose,
-                        meeting_with: data.meeting_with,
-                        sbu: data.sbu || formData.sbu,
-                        branch: data.branch || formData.branch,
-                        status: 'Checked-in',
-                        validation_method: 'Auto',
-                        is_pre_registered: true,
-                        source_tag: data.request_source === 'webpage' ? 'pre-scheduled-via web page' : null
-                    });
+            // Step 2 — Find the one scheduled for today
+            const meeting = data.find(m => m.meeting_date === today);
 
-                if (insertError) throw new Error("Failed to check-in visitor.");
+            if (!meeting) {
+                const dates = data.map(m => m.meeting_date).join(', ');
+                setError(`Your appointment is not scheduled for today (${today}). Scheduled date(s): ${dates}. Please contact security.`);
+                setVerifying(false);
+                return;
+            }
 
-                // Update meeting status
-                const { error: updateError } = await supabase
-                    .from('scheduled_meetings')
-                    .update({ status: 'Checked-in' })
-                    .eq('id', data.id);
+            // Step 3 — Time window validation (15-min early buffer, 30-min late grace)
+            const now = new Date();
+            const nowTotal = now.getHours() * 60 + now.getMinutes();
+            const [startH, startM] = (meeting.start_time || '00:00').split(':').map(Number);
+            const startTotal = startH * 60 + startM;
+            const [endH, endM] = (meeting.end_time || '23:59').split(':').map(Number);
+            let endTotal = endH * 60 + endM;
+            if (endTotal <= startTotal) {
+                endTotal += 24 * 60; // handle cross-midnight or "00:00" end times
+            }
 
-                if (updateError) throw new Error("Failed to update meeting status.");
+            if (nowTotal < startTotal - 15) {
+                setError(`You are too early. Your appointment is at ${meeting.start_time.slice(0, 5)}. Please return 15 minutes before then.`);
+                setVerifying(false);
+                return;
+            }
 
-                // Set success state
-                setSubmittedData({
-                    visitors: [{ name: data.visitor_name }],
-                    meetingWith: data.meeting_with
+            if (nowTotal > endTotal + 30) {
+                setError(`Your appointment (${meeting.start_time.slice(0, 5)} – ${meeting.end_time.slice(0, 5)}) has already expired. Please proceed as a walk-in or contact security.`);
+                setVerifying(false);
+                return;
+            }
+
+            // Step 4 — Log the visitor entry
+            const { error: insertError } = await supabase
+                .from('visitors')
+                .insert({
+                    name: meeting.visitor_name,
+                    nic_passport: meeting.visitor_nic,
+                    contact: meeting.visitor_contact,
+                    type: formData.visitorType || meeting.visitor_category || 'Visitor',
+                    purpose: meeting.purpose,
+                    meeting_with: meeting.meeting_with,
+                    status: 'Checked-in',
+                    validation_method: 'Agent-Auto',
+                    is_pre_registered: true,
+                    entry_time: new Date().toISOString(),
+                    source_tag: meeting.request_source === 'webpage' ? 'pre-scheduled-via web page' : 'pre-scheduled'
                 });
-                setApprovalStatus('approved');
 
-            } else {
-                setError("No scheduled meeting found for today with this ID. Please proceed as a walk-in or contact security.");
+            if (insertError) {
+                console.error('[CheckIn] visitors insert error:', insertError);
+                throw new Error(`Check-in failed: ${insertError.message}`);
             }
+
+            // Step 5 — Mark meeting as Checked-in
+            const { error: updateError } = await supabase
+                .from('scheduled_meetings')
+                .update({ status: 'Checked-in' })
+                .eq('id', meeting.id);
+
+            if (updateError) {
+                console.error('[CheckIn] status update error:', updateError);
+                // We don't throw here to ensure the user still sees the "Success" screen, 
+                // but we log it.
+            }
+
+            setScheduleMatch(meeting);
+            setSubmittedData({
+                visitors: [{ name: meeting.visitor_name }],
+                meetingWith: meeting.meeting_with
+            });
+            setApprovalStatus('approved');
+
         } catch (err) {
-            console.error(err);
-            setError("Error processing check-in. Please try again or contact security.");
+            console.error('[CheckIn] Unexpected error:', err);
+            setError(`Check-in error: ${err.message || 'Please try again or contact security.'}`);
         } finally {
             setVerifying(false);
         }
@@ -291,11 +357,17 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // If the user submits while "Scheduled" is toggled, treat it as a verification attempt
+        if (formData.isScheduled) {
+            return handleVerifySchedule();
+        }
+
         setLoading(true);
         try {
             // Case 2: WALK-IN MEETING REQUEST (PURE SCHEDULING)
             // Note: Case 1 is now handled by handleVerifySchedule directly
-            const approvalToken = crypto.randomUUID();
+            const approvalToken = generateUUID();
 
             // Only create ONE meeting request for the group (or multiple if system expects separate)
             // We'll create one for the primary visitor for now as per system behavior
@@ -312,9 +384,13 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     purpose: formData.purpose,
                     sbu: formData.sbu,
                     branch: formData.branch,
-                    meeting_date: new Date().toISOString().split('T')[0],
-                    start_time: '10:00', // Placeholders
-                    end_time: '11:00',
+                    meeting_date: formData.requestedDate,
+                    start_time: formData.requestedTime,
+                    end_time: (() => {
+                        const [h, m] = formData.requestedTime.split(':').map(Number);
+                        const endH = (h + 1) % 24;
+                        return `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    })(),
                     status: 'Meeting Requested',
                     approval_token: approvalToken
                 })
@@ -337,7 +413,11 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     formData.meetingWith,
                     meeting.id,
                     approvalToken,
-                    primaryVisitor.contact
+                    primaryVisitor.contact,
+                    false,
+                    'On-arrival',
+                    formData.requestedDate,
+                    formData.requestedTime
                 );
 
                 if (telegramData?.message_id) {
@@ -370,7 +450,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
             left: 0,
             width: '100vw',
             height: '100vh',
-            backgroundColor: '#0a0c10',
+            backgroundColor: 'var(--background)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
@@ -392,7 +472,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     textAlign: 'center',
                     maxWidth: '500px',
                     width: '90%',
-                    backgroundColor: '#1E293B',
+                    backgroundColor: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: '24px',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}>
@@ -437,7 +518,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     textAlign: 'center',
                     maxWidth: '500px',
                     width: '90%',
-                    backgroundColor: '#1E293B',
+                    backgroundColor: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: '24px',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}>
@@ -465,7 +547,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     textAlign: 'center',
                     maxWidth: '500px',
                     width: '90%',
-                    backgroundColor: '#1E293B',
+                    backgroundColor: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: '24px',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}>
@@ -499,8 +582,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                         style={{
                             width: '100%',
                             padding: '1.25rem',
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            color: '#fff',
+                            backgroundColor: 'var(--glass-bg)',
+                            color: 'var(--text-main)',
                             borderRadius: '16px',
                             fontWeight: 800,
                             border: '1px solid rgba(255,255,255,0.1)',
@@ -527,7 +610,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     textAlign: 'center',
                     maxWidth: '500px',
                     width: '90%',
-                    backgroundColor: '#1E293B',
+                    backgroundColor: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: '24px',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}>
@@ -547,8 +631,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                             onClick={() => navigate('/')}
                             style={{
                                 padding: '1rem 2rem',
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                color: '#fff',
+                                backgroundColor: 'var(--glass-bg)',
+                                color: 'var(--text-main)',
                                 borderRadius: '12px',
                                 fontWeight: 700,
                                 border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -576,7 +660,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
             left: 0,
             width: '100vw',
             height: '100vh',
-            backgroundColor: '#0a0c10',
+            backgroundColor: 'var(--background)',
             zIndex: 9999,
             display: 'flex',
             flexDirection: 'column',
@@ -589,8 +673,11 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
             {/* Background Blur Overlay for Premium Feel */}
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.2)', zIndex: -1 }}></div>
 
-            {/* Language Selection - Prominent for Visitors */}
-            <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 10000 }}>
+            {/* Controls - Prominent for Visitors */}
+            <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 10000, display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button onClick={toggleTheme} style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-main)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
+                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
                 <LanguageSwitcher variant="kiosk" />
             </div>
 
@@ -607,7 +694,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                 <div style={{
                     width: '110px',
                     height: '110px',
-                    backgroundColor: '#1e293b',
+                    backgroundColor: 'var(--background)',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -621,23 +708,23 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     <div style={{
                         width: '70px',
                         height: '70px',
-                        border: '2px solid rgba(255,255,255,0.4)',
+                        border: '2px solid var(--glass-border)',
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
                     }}>
-                        <User size={36} color="#fff" />
+                        <User size={36} color="var(--text-main)" />
                     </div>
                 </div>
 
                 {/* Main Glass Card */}
                 <div className="card animate-fade-in" style={{
                     width: '100%',
-                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                    backgroundColor: 'var(--glass-bg)',
                     backdropFilter: 'blur(25px)',
                     WebkitBackdropFilter: 'blur(25px)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: '24px',
                     padding: '4.5rem 1.5rem 1.5rem 1.5rem',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
@@ -646,27 +733,28 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                     gap: '1rem'
                 }}>
                     <div style={{ textAlign: 'center' }}>
-                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
                             {step === 1 ? t('kiosk.title') : t('kiosk.identity')}
                         </h2>
-                        <p style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        <p style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                             {step === 1 ? t('kiosk.subtitle') : `${t(`kiosk.${formData.visitorType.toLowerCase()}`)} ${t('kiosk.entry_portal_suffix')}`}
                         </p>
                     </div>
 
                     {step === 1 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            {['Parents', 'Lyceum', 'Other'].map(type => (
+                            {['Pre-Scheduled Meeting', 'Parents', 'Lyceum', 'Other'].map(type => (
                                 <button
                                     key={type}
                                     onClick={() => handleTypeSelect(type)}
                                     style={{
                                         width: '100%',
                                         padding: '1.25rem',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        backgroundColor: type === 'Pre-Scheduled Meeting' ? 'rgba(37, 99, 235, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid',
+                                        borderColor: type === 'Pre-Scheduled Meeting' ? 'rgba(37, 99, 235, 0.4)' : 'var(--glass-border)',
                                         borderRadius: '16px',
-                                        color: '#fff',
+                                        color: 'var(--text-main)',
                                         fontSize: '1.125rem',
                                         fontWeight: 700,
                                         cursor: 'pointer',
@@ -678,8 +766,8 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                     className="hover-brighten"
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <User size={20} style={{ color: type === 'Lyceum' ? 'var(--primary)' : 'var(--text-main)' }} />
-                                        {t(`kiosk.${type.toLowerCase()}`)}
+                                        {type === 'Pre-Scheduled Meeting' ? <Calendar size={20} color="var(--primary)" /> : <User size={20} style={{ color: type === 'Lyceum' ? 'var(--primary)' : 'var(--text-main)' }} />}
+                                        {type === 'Pre-Scheduled Meeting' ? 'I have a Pre-Scheduled Appointment' : t(`kiosk.${type.toLowerCase()}`)}
                                     </div>
                                     <ArrowRight size={18} opacity={0.5} />
                                 </button>
@@ -719,7 +807,7 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                 }}>
                                     {formData.isScheduled && <CheckCircle size={14} color="#fff" />}
                                 </div>
-                                <span style={{ color: '#fff', fontSize: '0.875rem', fontWeight: 600 }}>{t('kiosk.scheduled_toggle')}</span>
+                                <span style={{ color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600 }}>{t('kiosk.scheduled_toggle')}</span>
                             </div>
 
                             <p className="animate-fade-in" style={{
@@ -866,27 +954,36 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
 
                                                 {/* Contact Number Field */}
                                                 <div style={{ position: 'relative' }}>
-                                                    <div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-                                                        <span style={{ fontSize: '12px', fontWeight: 800 }}>{t('kiosk.tel_label')}</span>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: '#fff', borderRadius: '12px', border: visitor.contact && visitor.contact.replace('+94', '').length > 9 ? '1px solid #ef4444' : 'none', overflow: 'hidden' }}>
+                                                        <span style={{ padding: '0.875rem 0.5rem 0.875rem 1rem', color: '#94a3b8', fontWeight: 600, borderRight: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }}>+94</span>
+                                                        <input
+                                                            type="tel"
+                                                            required={!formData.isScheduled}
+                                                            placeholder="775432765"
+                                                            value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
+                                                            onChange={(e) => {
+                                                                let val = e.target.value.replace(/\D/g, '');
+                                                                if (val.startsWith('0')) val = val.substring(1);
+                                                                updateVisitor(index, 'contact', val ? '+94' + val : '');
+                                                            }}
+                                                            pattern="\d{9}"
+                                                            title="Contact number must be exactly 9 digits after +94"
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '0.875rem 1rem',
+                                                                backgroundColor: 'transparent',
+                                                                border: 'none',
+                                                                color: '#1e293b',
+                                                                fontWeight: 600,
+                                                                fontSize: '0.9375rem',
+                                                                outline: 'none'
+                                                            }}
+                                                        />
                                                     </div>
-                                                    <input
-                                                        type="tel"
-                                                        required={!formData.isScheduled}
-                                                        placeholder={t('kiosk.contact_placeholder')}
-                                                        value={visitor.contact || ''}
-                                                        onChange={(e) => updateVisitor(index, 'contact', e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                            backgroundColor: '#fff',
-                                                            borderRadius: '12px',
-                                                            border: 'none',
-                                                            color: '#1e293b',
-                                                            fontWeight: 600,
-                                                            fontSize: '0.9375rem',
-                                                            outline: 'none'
-                                                        }}
-                                                    />
+                                                    {visitor.contact && visitor.contact.replace('+94', '').length > 9 && (
+                                                        <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block', position: 'absolute', bottom: '-20px', left: '1rem' }}>Invalid contact number (exceeds 9 digits)</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -1025,6 +1122,38 @@ const VisitorSelfCheckIn = ({ onClose, onSuccess }) => {
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Requested Date & Time Section */}
+                                    {!formData.isScheduled && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Requested Date</label>
+                                                <div style={{ position: 'relative' }}>
+                                                    <Calendar size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                    <input
+                                                        type="date"
+                                                        required
+                                                        value={formData.requestedDate}
+                                                        onChange={(e) => setFormData({ ...formData, requestedDate: e.target.value })}
+                                                        style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', backgroundColor: '#fff', borderRadius: '12px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.9375rem', outline: 'none' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Preferred Time</label>
+                                                <div style={{ position: 'relative' }}>
+                                                    <Clock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                    <input
+                                                        type="time"
+                                                        required
+                                                        value={formData.requestedTime}
+                                                        onChange={(e) => setFormData({ ...formData, requestedTime: e.target.value })}
+                                                        style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', backgroundColor: '#fff', borderRadius: '12px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.9375rem', outline: 'none' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <button
                                         type="submit"

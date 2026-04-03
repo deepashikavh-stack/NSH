@@ -15,7 +15,7 @@ import { AlertService } from '../services/AlertService';
 const AlertContext = createContext();
 const alertService = new AlertService();
 
-export const useAlerts = () => useContext(AlertContext);
+ /* eslint-disable-next-line react-refresh/only-export-components */ export const useAlerts = () => useContext(AlertContext);
 
 export const AlertProvider = ({ children, user }) => {
     const [alerts, setAlerts] = useState([]);
@@ -39,13 +39,11 @@ export const AlertProvider = ({ children, user }) => {
             setAlerts(data);
             setUnreadCount(data.filter(a => !a.is_read).length);
         } catch (err) {
-            if (err.message?.includes('alerts')) {
-                console.warn('AlertContext: alerts table missing. Run supabase_alerts_setup.sql.');
-                setAlerts([]);
-                setUnreadCount(0);
-            } else {
-                console.error('AlertContext: fetch error:', err);
-            }
+            // Silently degrade — missing alerts table or any DB error
+            // must NOT crash the app or blank other views
+            console.warn('AlertContext: alerts unavailable:', err?.message || err);
+            setAlerts([]);
+            setUnreadCount(0);
         } finally {
             setLoading(false);
         }

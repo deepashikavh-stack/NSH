@@ -10,19 +10,28 @@ const CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
 /**
  * Internal helper: call the telegram proxy edge function
  */
+const PROXY_SECRET = import.meta.env.VITE_TELEGRAM_PROXY_SECRET;
+
 const callProxy = async (action, params) => {
     if (!PROXY_URL || PROXY_URL === 'your_telegram_proxy_url_here') {
         if (import.meta.env.DEV) console.warn('Telegram proxy not configured. Skipping.');
         return null;
     }
 
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    };
+
+    // Include proxy secret header if configured — required by telegram-proxy edge function
+    if (PROXY_SECRET && PROXY_SECRET !== 'your_proxy_secret_here') {
+        headers['x-telegram-proxy-secret'] = PROXY_SECRET;
+    }
+
     try {
         const response = await fetch(PROXY_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            },
+            headers,
             body: JSON.stringify({ action, params })
         });
 
@@ -51,7 +60,7 @@ export const escapeHTML = (str) => {
     })[m]);
 };
 
-export const sendTelegramNotification = async (visitorNames, purpose, meetingWith, visitorId, approvalToken, contactNumber, isExternal = false, source = 'On-arrival') => {
+export const sendTelegramNotification = async (visitorNames, purpose, meetingWith, visitorId, approvalToken, contactNumber, isExternal = false, source = 'On-arrival', requestedDate = null, requestedTime = null) => {
     const chatId = CHAT_ID;
     const envAppUrl = import.meta.env.VITE_APP_URL;
     const currentUrl = window.location.origin;
@@ -64,7 +73,7 @@ export const sendTelegramNotification = async (visitorNames, purpose, meetingWit
         return null;
     }
 
-    const fullApproveUrl = `${appUrl}/approve/${approvalToken}`;
+    const fullApproveUrl = `${appUrl}/appointment-approval?request_id=${visitorId}`;
 
     const sourceTag = source === 'webpage' ? ' (from webpage)' : (isExternal ? ' (via the web page)' : ' (On-Arrival)');
 
@@ -75,6 +84,7 @@ export const sendTelegramNotification = async (visitorNames, purpose, meetingWit
 📞 <b>Contact:</b> ${escapeHTML(contactNumber || 'Not Provided')}
 🏢 <b>Purpose:</b> ${escapeHTML(purpose)}
 🤝 <b>Meeting With:</b> ${escapeHTML(meetingWith || 'Not Specified')}
+${requestedDate ? `🕒 <b>Requested Time:</b> ${requestedDate} at ${requestedTime}\n` : ''}
 
 ${isLocalhost ? `🔗 <b>Approval Link:</b>\n<code>${fullApproveUrl}</code>\n\n<i>(Tap to copy. Paste this in your browser on the computer running the server.)</i>` : '📍 <b>Next Step:</b> Please set the time via the Secure Portal.'}
     `.trim();
@@ -123,7 +133,7 @@ export const editTelegramMessageMarkup = async (chatId, messageId, keyboard) => 
     });
 };
 
-export const getTimeSelectorKeyboard = (visitorId, step = 'from_h', selectedValue = null) => {
+export const getTimeSelectorKeyboard = (visitorId, step = 'from_h', _unused_selectedValue = null) /* eslint-disable-line no-unused-vars */ => {
     const hours = ['08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18'];
     const inline_keyboard = [];
 

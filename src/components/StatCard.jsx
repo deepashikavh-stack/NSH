@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
-const StatCard = ({ title, value, icon: Icon, trend, trendValue, color }) => {
+const StatCard = ({ /* eslint-disable-line no-unused-vars */ title, value, icon: Icon /* eslint-disable-line */, trend, trendValue, color }) => {
     const isUp = trend === 'up';
 
     return (

@@ -85,7 +85,7 @@ export class MeetingService extends BaseService {
      * @returns {Promise<Array>}
      */
     async getTodaysMeetings(status = null) {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toLocaleDateString('en-CA');
         const filters = { meeting_date: todayStr };
         if (status) filters.status = status;
 
@@ -100,7 +100,7 @@ export class MeetingService extends BaseService {
      * @returns {Promise<Array>} Overdue meetings
      */
     async findOverdueMeetings() {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toLocaleDateString('en-CA');
         const currentTime = new Date().toTimeString().slice(0, 5);
 
         return this.query((qb) =>

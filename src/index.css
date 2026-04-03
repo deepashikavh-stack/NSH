@@ -115,6 +115,51 @@ button {
   filter: brightness(1.1);
 }
 
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white !important;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  backdrop-filter: var(--glass-blur);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  border-radius: 8px;
+}
+
+.btn-pill {
+  border-radius: 9999px;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.btn-outline-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+}
+
 .card {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -195,20 +240,21 @@ button {
   display: grid;
 }
 
-.grid-cols-1 {
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-}
-
-.grid-cols-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.grid-cols-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .grid-cols-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-cols-4,
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal-portal-root {
@@ -277,8 +323,12 @@ button {
   }
 
   .card {
-    padding: 1.25rem;
+    padding: 1.5rem;
     border-radius: 16px;
+  }
+
+  .grid-cols-2, .grid-cols-3, .grid-cols-4 {
+    gap: 1rem !important;
   }
 
   body {

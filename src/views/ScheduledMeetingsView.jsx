@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Clock, User, FileText, Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Calendar, Clock, User, Users, FileText, Plus, Search, Filter, Edit, Trash2, CheckCircle, ShieldAlert, XCircle, Loader2 as Loader } from 'lucide-react';
 import MeetingScheduler from '../components/MeetingScheduler';
 import { supabase } from '../lib/supabase';
 import { sendSMS } from '../lib/sms';
+import { formatApprovedMessage, formatDeniedMessage, updateTelegramMessage } from '../lib/telegram';
+import { logAudit } from '../lib/audit';
 
 const ScheduledMeetingsView = () => {
     const [meetings, setMeetings] = useState([]);
@@ -13,17 +16,197 @@ const ScheduledMeetingsView = () => {
     const [meetingToDelete, setMeetingToDelete] = useState(null);
     const [filter, setFilter] = useState('upcoming'); // upcoming, today, past, all
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // New states for integrated sections
+    const [scheduledArrivals, setScheduledArrivals] = useState([]);
+    const [pendingApprovals, setPendingApprovals] = useState([]);
+    const [confirmingMeeting, setConfirmingMeeting] = useState(null);
+
+    const approveToken = searchParams.get('approve_token');
+
+    const handleEdit = React.useCallback((meeting) => {
+        // For multi-visitor, we need to gather all visitors in the same meeting group
+        const groupMeetings = meetings.filter(m =>
+            (meeting.meeting_id && m.meeting_id === meeting.meeting_id) ||
+            (!meeting.meeting_id && m.id === meeting.id)
+        );
+
+        const initialData = {
+            ...meeting,
+            visitors: groupMeetings.map(m => ({
+                name: m.visitor_name,
+                nic: m.visitor_nic,
+                contact: m.visitor_contact
+            }))
+        };
+
+        setEditingMeeting(initialData);
+        setShowScheduler(true);
+    }, [meetings]);
+
+    // Auto-open modal for approval token
+    useEffect(() => {
+        if (approveToken && meetings.length > 0) {
+            const meetingToApprove = meetings.find(m => m.approval_token === approveToken && !m.approval_token_used);
+            if (meetingToApprove) {
+                handleEdit(meetingToApprove);
+                // Clear the token from URL to avoid re-triggering
+                setSearchParams({}, { replace: true });
+            }
+        }
+    }, [approveToken, meetings, setSearchParams, handleEdit]);
 
     useEffect(() => {
         fetchMeetings();
+        fetchPendingApprovals();
+        fetchScheduledArrivals();
+
+        // Real-time subscription for approvals
+        const subscription = supabase
+            .channel('meetings-ops-sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'visitors' }, () => {
+                fetchPendingApprovals();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_meetings' }, () => {
+                fetchPendingApprovals();
+                fetchScheduledArrivals();
+                fetchMeetings();
+            })
+            .subscribe();
+
+        const interval = setInterval(() => {
+            fetchPendingApprovals();
+            fetchScheduledArrivals();
+        }, 5000);
+
+        return () => {
+            clearInterval(interval);
+            supabase.removeChannel(subscription);
+        };
     }, []);
+
+    const fetchScheduledArrivals = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabase
+            .from('scheduled_meetings')
+            .select('*')
+            .eq('meeting_date', today)
+            .in('status', ['Scheduled', 'Confirmed', 'Approved']);
+        setScheduledArrivals(data || []);
+    };
+
+    const fetchPendingApprovals = async () => {
+        const [{ data: visitors }, { data: meetingRequests }] = await Promise.all([
+            supabase.from('visitors').select('*').eq('status', 'Pending'),
+            supabase.from('scheduled_meetings').select('*').eq('status', 'Meeting Requested')
+        ]);
+
+        const merged = [
+            ...(visitors || []).map(v => ({ ...v, sourceTable: 'visitors' })),
+            ...(meetingRequests || []).map(m => ({
+                id: m.id,
+                name: m.visitor_name,
+                nic_passport: m.visitor_nic,
+                purpose: m.purpose,
+                meeting_with: m.meeting_with,
+                entry_time: m.created_at,
+                status: m.status,
+                sourceTable: 'scheduled_meetings',
+                telegram_chat_id: m.telegram_chat_id,
+                telegram_message_id: m.telegram_message_id
+            }))
+        ].sort((a, b) => new Date(a.entry_time) - new Date(b.entry_time));
+        setPendingApprovals(merged);
+    };
+
+    const handleApprove = async (id, sourceTable = 'visitors') => {
+        if (sourceTable === 'scheduled_meetings') {
+            const { data: meeting } = await supabase.from('scheduled_meetings').select('*').eq('id', id).single();
+            await supabase.from('scheduled_meetings').update({ status: 'Scheduled', start_time: '10:00', end_time: '11:00' }).eq('id', id);
+            if (meeting?.telegram_chat_id) {
+                const newText = formatApprovedMessage({
+                    visitorNames: meeting.visitor_name,
+                    purpose: meeting.purpose,
+                    meetingWith: meeting.meeting_with,
+                    requestReceived: new Date(meeting.created_at).toLocaleTimeString(),
+                    approvedBy: 'Admin',
+                    approvedAt: new Date().toLocaleTimeString(),
+                    startTime: '10:00',
+                    endTime: '11:00',
+                    date: meeting.meeting_date
+                });
+                updateTelegramMessage(meeting.telegram_chat_id, meeting.telegram_message_id, newText);
+            }
+        } else {
+            const { data: visitor } = await supabase.from('visitors').select('*').eq('id', id).single();
+            await supabase.from('scheduled_meetings').insert({
+                visitor_name: visitor.name,
+                visitor_nic: visitor.nic_passport,
+                visitor_category: 'On-arrival',
+                purpose: visitor.purpose,
+                meeting_with: visitor.meeting_with,
+                meeting_date: new Date().toISOString().split('T')[0],
+                status: 'Scheduled'
+            });
+            await supabase.from('visitors').update({ status: 'Meeting Scheduled' }).eq('id', id);
+        }
+        fetchPendingApprovals();
+        fetchScheduledArrivals();
+    };
+
+    const handleReject = async (id, sourceTable = 'visitors') => {
+        if (sourceTable === 'scheduled_meetings') {
+            const { data: meeting } = await supabase.from('scheduled_meetings').select('*').eq('id', id).single();
+            await supabase.from('scheduled_meetings').update({ status: 'Cancelled' }).eq('id', id);
+            if (meeting?.telegram_chat_id) {
+                const newText = formatDeniedMessage({
+                    visitorNames: meeting.visitor_name,
+                    purpose: meeting.purpose,
+                    meetingWith: meeting.meeting_with,
+                    actionBy: 'Admin',
+                    actionAt: new Date().toLocaleTimeString()
+                });
+                updateTelegramMessage(meeting.telegram_chat_id, meeting.telegram_message_id, newText);
+            }
+        } else {
+            await supabase.from('visitors').update({ status: 'Denied' }).eq('id', id);
+        }
+        fetchPendingApprovals();
+        fetchScheduledArrivals();
+    };
+
+    const handleCheckIn = (meeting) => setConfirmingMeeting(meeting);
+
+    const proceedWithCheckIn = async () => {
+        const meeting = confirmingMeeting;
+        if (!meeting) return;
+        try {
+            await supabase.from('visitors').insert({
+                name: meeting.visitor_name,
+                nic_passport: meeting.visitor_nic,
+                type: meeting.visitor_category || 'Visitor',
+                purpose: meeting.purpose,
+                meeting_with: meeting.meeting_with,
+                status: 'Checked-in',
+                validation_method: 'Agent-Auto',
+                is_pre_registered: true
+            });
+            await supabase.from('scheduled_meetings').update({ status: 'Checked-in' }).eq('id', meeting.id);
+            setConfirmingMeeting(null);
+            fetchScheduledArrivals();
+            fetchMeetings();
+        } catch (err) {
+            alert('Check-in error: ' + err.message);
+        }
+    };
 
     const fetchMeetings = async () => {
         setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('scheduled_meetings')
-                .select('id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, meeting_role, start_time, end_time, status, visitor_category, meeting_id, google_event_id, created_at')
+                .select('id, meeting_id, visitor_name, visitor_nic, visitor_contact, purpose, meeting_with, meeting_date, meeting_role, start_time, end_time, status, visitor_category, telegram_chat_id, telegram_message_id, approval_token, created_at, google_event_id')
                 .order('meeting_date', { ascending: true })
                 .order('start_time', { ascending: true });
 
@@ -42,25 +225,7 @@ const ScheduledMeetingsView = () => {
         fetchMeetings();
     };
 
-    const handleEdit = (meeting) => {
-        // For multi-visitor, we need to gather all visitors in the same meeting group
-        const groupMeetings = meetings.filter(m =>
-            (meeting.meeting_id && m.meeting_id === meeting.meeting_id) ||
-            (!meeting.meeting_id && m.id === meeting.id)
-        );
 
-        const initialData = {
-            ...meeting,
-            visitors: groupMeetings.map(m => ({
-                name: m.visitor_name,
-                nic: m.visitor_nic,
-                contact: m.visitor_contact
-            }))
-        };
-
-        setEditingMeeting(initialData);
-        setShowScheduler(true);
-    };
 
     const handleDelete = async () => {
         if (!meetingToDelete) return;
@@ -81,8 +246,7 @@ const ScheduledMeetingsView = () => {
             const { error } = await supabase
                 .from('scheduled_meetings')
                 .delete()
-                .eq(meetingToDelete.meeting_id ? 'meeting_id' : 'id',
-                    meetingToDelete.meeting_id || meetingToDelete.id);
+                .eq('id', meetingToDelete.id);
 
             if (error) throw error;
 
@@ -148,6 +312,64 @@ const ScheduledMeetingsView = () => {
                     Schedule Meeting
                 </button>
             </div>
+
+            {/* Expected Today (Integrated) */}
+            <div className="card" style={{ padding: '1.75rem', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255, 140, 0, 0.1)', borderRadius: '12px' }}>
+                            <Calendar size={24} color="var(--primary)" />
+                        </div>
+                        <div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '0.25rem' }}>Expected Today</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Confirmed arrivals for today</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
+                    {scheduledArrivals.filter(m => m.status !== 'Checked-in').length === 0 ? (
+                        <div className="col-span-full" style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px dashed var(--glass-border)' }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No arrivals scheduled for today.</p>
+                        </div>
+                    ) : (
+                        scheduledArrivals.filter(m => m.status !== 'Checked-in').map(meeting => (
+                            <div key={meeting.id} style={{ padding: '1.25rem', backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--glass-border)', borderRadius: '16px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                    <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{meeting.visitor_name}</span>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                        <Clock size={12} /> {meeting.start_time?.slice(0, 5)}
+                                    </span>
+                                </div>
+                                <button onClick={() => handleCheckIn(meeting)} className="btn-primary" style={{ width: '100%', fontSize: '0.8125rem', padding: '0.5rem', borderRadius: '10px' }}>
+                                    Confirm Arrival
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* Pending Approvals (Integrated) */}
+            {pendingApprovals.length > 0 && (
+                <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid rgba(234, 179, 8, 0.3)', background: 'rgba(234, 179, 8, 0.05)' }}>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#EAB308', marginBottom: '1rem' }}>Pending Approvals ({pendingApprovals.length})</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1rem' }}>
+                        {pendingApprovals.map(req => (
+                            <div key={req.id} style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{req.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>To meet: {req.meeting_with}</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button onClick={() => handleApprove(req.id, req.sourceTable)} style={{ padding: '0.4rem', color: '#10b981', backgroundColor: 'transparent' }}><CheckCircle size={18} /></button>
+                                    <button onClick={() => handleReject(req.id, req.sourceTable)} style={{ padding: '0.4rem', color: '#ef4444', backgroundColor: 'transparent' }}><XCircle size={18} /></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Filters & Search */}
             <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -322,6 +544,21 @@ const ScheduledMeetingsView = () => {
                             >
                                 Yes, Cancel Meeting
                             </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+            {/* Check-in Confirmation Modal */}
+            {confirmingMeeting && createPortal(
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="card" style={{ maxWidth: '400px', width: '90%', padding: '2.5rem', textAlign: 'center' }}>
+                        <Users size={40} color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>Confirm Arrival</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Authorize entry for <strong>{confirmingMeeting.visitor_name}</strong>?</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <button onClick={() => setConfirmingMeeting(null)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)' }}>Cancel</button>
+                            <button onClick={proceedWithCheckIn} className="btn-primary">Confirm</button>
                         </div>
                     </div>
                 </div>,

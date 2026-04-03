@@ -57,6 +57,16 @@ const MeetingScheduler = ({ onClose, onSuccess, initialData }) => {
         });
     };
 
+    const generateUUID = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -83,7 +93,7 @@ const MeetingScheduler = ({ onClose, onSuccess, initialData }) => {
         }
 
         try {
-            const meetingId = formData.meetingId || crypto.randomUUID();
+            const meetingId = formData.meetingId || generateUUID();
             let googleEventId = formData.googleEventId;
 
             // 1. Handle Google Calendar Sync First (to get event ID if new)
@@ -322,13 +332,25 @@ const MeetingScheduler = ({ onClose, onSuccess, initialData }) => {
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
                                             Contact Number
                                         </label>
-                                        <input
-                                            type="tel"
-                                            value={visitor.contact}
-                                            onChange={(e) => updateVisitor(index, 'contact', e.target.value)}
-                                            placeholder="+94 XX XXX XXXX"
-                                            style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
-                                        />
+                                            <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', border: visitor.contact && visitor.contact.replace('+94', '').length > 9 ? '1px solid #ef4444' : '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                                <span style={{ padding: '0.625rem 0.5rem 0.625rem 0.625rem', color: 'var(--text-muted)', fontWeight: 600, borderRight: '1px solid var(--border)' }}>+94</span>
+                                                <input
+                                                    type="tel"
+                                                    value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
+                                                    onChange={(e) => {
+                                                        let val = e.target.value.replace(/\D/g, '');
+                                                        if (val.startsWith('0')) val = val.substring(1);
+                                                        updateVisitor(index, 'contact', val ? '+94' + val : '');
+                                                    }}
+                                                    placeholder="775432765"
+                                                    pattern="\d{9}"
+                                                    title="Contact number must be exactly 9 digits after +94"
+                                                    style={{ width: '100%', padding: '0.625rem', border: 'none', backgroundColor: 'transparent', color: 'var(--text-main)', outline: 'none' }}
+                                                />
+                                            </div>
+                                            {visitor.contact && visitor.contact.replace('+94', '').length > 9 && (
+                                                <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>Invalid contact number (exceeds 9 digits)</span>
+                                            )}
                                     </div>
                                 </div>
                             ))}
@@ -399,7 +421,7 @@ const MeetingScheduler = ({ onClose, onSuccess, initialData }) => {
                                     value={formData.date}
                                     onChange={handleChange}
                                     required
-                                    min={new Date().toISOString().split('T')[0]}
+                                    min={new Date().toLocaleDateString('en-CA')}
                                     style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
                                 />
                             </div>

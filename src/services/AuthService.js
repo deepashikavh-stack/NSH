@@ -41,7 +41,7 @@ export class AuthService {
         if (!passwordValid) throw new Error('Invalid username or password');
 
         // Strip password_hash before returning / storing
-        const { password_hash, ...safeUser } = user;
+        const { password_hash: _, ...safeUser } = user;
         return safeUser;
     }
 

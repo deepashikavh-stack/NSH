@@ -31,7 +31,17 @@ export const syncTranslations = async () => {
             console.log(`Successfully synced ${data.length} translation keys.`);
         }
     } catch (err) {
-        console.error('Failed to sync translations:', err);
+        // If the table doesn't exist (404), or we have a permission issue due to missing schema, log a quiet warning
+        const isTableMissing = err.code === 'PGRST116' || 
+                               err.status === 404 || 
+                               err.message?.toLowerCase().includes('relation "translations" does not exist') ||
+                               err.details?.toLowerCase().includes('relation "translations" does not exist');
+
+        if (isTableMissing) {
+            console.warn('Translations table not yet available in database. Using local language files.');
+        } else {
+            console.error('Failed to sync translations:', err);
+        }
     }
 };
 

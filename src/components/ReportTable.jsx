@@ -2,7 +2,7 @@ import React from 'react';
 import { Download, FileText } from 'lucide-react';
 import { exportToPDF } from '../utils/pdfExport';
 
-const ReportTable = ({ title, description, data, columns, onExport }) => {
+const ReportTable = ({ title, description, data, columns, _onExport }) /* eslint-disable-line no-unused-vars */ => {
     const handlePDFExport = () => {
         exportToPDF({
             title: title,

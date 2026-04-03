@@ -20,8 +20,9 @@ import {
 const Sidebar = ({ activeTab, setActiveTab, onLogout, role, isOpen, onClose, isMobile }) => {
     const allMenuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Management', 'School Operations'] },
+        { id: 'visitors', label: 'Visitor Management', icon: Users, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Management', 'School Operations'] },
         { id: 'scheduled-meetings', label: 'Scheduled Meetings', icon: Calendar, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Operations'] },
-        { id: 'vehicles', label: 'Vehicle Logs', icon: Car, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Management', 'School Operations'] },
+        { id: 'vehicles', label: 'Vehicle Management', icon: Car, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Management', 'School Operations'] },
         { id: 'reports', label: 'Reports & Stats', icon: PieChart, roles: ['Admin', 'Security HOD', 'School Management'] },
         { id: 'audit-trail', label: 'Audit Trail', icon: ClipboardList, roles: ['Admin', 'Security HOD'] },
         { id: 'user-management', label: 'User Management', icon: UserCog, roles: ['Admin'] },
@@ -89,7 +90,11 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, isOpen, onClose, isM
                                     onClick={() => setActiveTab(item.id)}
                                     style={{
                                         width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.875rem',
                                         justifyContent: 'flex-start',
+                                        textAlign: 'left',
                                         padding: '0.875rem 1rem',
                                         backgroundColor: isActive ? 'var(--primary)' : 'transparent',
                                         color: isActive ? 'white' : 'var(--text-muted)',
@@ -113,7 +118,11 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, isOpen, onClose, isM
                     onClick={() => setActiveTab('settings')}
                     style={{
                         width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.875rem',
                         justifyContent: 'flex-start',
+                        textAlign: 'left',
                         padding: '0.75rem 1rem',
                         backgroundColor: activeTab === 'settings' ? 'var(--primary)' : 'transparent',
                         color: activeTab === 'settings' ? 'white' : 'var(--text-muted)',
@@ -129,7 +138,11 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, isOpen, onClose, isM
                     onClick={onLogout}
                     style={{
                         width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.875rem',
                         justifyContent: 'flex-start',
+                        textAlign: 'left',
                         padding: '0.75rem 1rem',
                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
                         color: 'var(--danger)',

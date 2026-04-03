@@ -9,7 +9,7 @@
  *   const service = new NotificationService();
  *   service.addChannel(new TelegramNotification());
  *   service.addChannel(new SMSNotification());
- *   await service.notifyAll(recipient, message, options);
+ *   await service.notifyAll(recipient, message);
  */
 
 // ─── Abstract Strategy ───────────────────────────────────────────────────────
@@ -27,12 +27,12 @@ export class NotificationStrategy {
 
     /**
      * Send a notification. Must be implemented by subclasses.
-     * @param {string|Object} recipient — Channel-specific recipient identifier
-     * @param {string} message — The notification content
-     * @param {Object} [options={}] — Channel-specific options
+     * @param {string|Object} _recipient — Channel-specific recipient identifier
+     * @param {string} _message — The notification content
+     * @param {Object} [_options={}] — Channel-specific options
      * @returns {Promise<Object|null>} Channel-specific result
      */
-    async send(recipient, message, options = {}) {
+    async send(_recipient, __unused_message = {}, __unused_options = {}) /* eslint-disable-line no-unused-vars */ {
         throw new Error(`${this.channelName}: send() not implemented`);
     }
 
@@ -59,7 +59,7 @@ export class TelegramNotification extends NotificationStrategy {
             && this.chatId && this.chatId !== 'your_chat_id_here');
     }
 
-    async send(recipient, message, options = {}) {
+    async send(recipient, message = {}, options = {}) {
         if (!this.isConfigured()) {
             if (import.meta.env.DEV) console.warn('Telegram: not configured, skipping.');
             return null;
@@ -152,7 +152,7 @@ export class SMSNotification extends NotificationStrategy {
         super('SMS');
     }
 
-    async send(recipient, message, options = {}) {
+    async send(recipient, message = {}, __unused_options = {}) /* eslint-disable-line no-unused-vars */ {
         // TODO: Integrate with real SMS gateway (Twilio, Vonage, local provider)
         console.log('--- [SMS LOG START] ---');
         console.log(`To: ${recipient}`);
@@ -174,7 +174,7 @@ export class CalendarNotification extends NotificationStrategy {
      * Create a calendar event as a notification mechanism.
      * This delegates to the existing Google Calendar integration.
      */
-    async send(recipient, message, options = {}) {
+    async send(_recipient, __unused_message = {}, options = {}) /* eslint-disable-line no-unused-vars */ {
         // Calendar notifications are handled via googleCalendar.js
         // This strategy wraps event creation for the notification pipeline
         const { createGoogleCalendarEvent } = await import('../../lib/googleCalendar');

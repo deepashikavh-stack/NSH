@@ -20,7 +20,7 @@ export class VisitorService extends BaseService {
      */
     async getActiveVisitors() {
         return this.query((qb) =>
-            qb.select('id, name, nic_passport, entry_time, exit_time, status, type, category, purpose, meeting_with, contact_number')
+            qb.select('id, name, nic_passport, entry_time, exit_time, status, type, purpose, meeting_with')
                 .is('exit_time', null)
                 .order('entry_time', { ascending: false })
         );

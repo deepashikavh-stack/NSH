@@ -51,10 +51,10 @@ export class EntryAgent {
 
     /**
      * Abstract — Must be implemented by subclasses.
-     * @param {Object} entryData
+     * @param {Object} __unused_entryData
      * @returns {Promise<{ status: string, message: string, details?: Object }>}
      */
-    async _performValidation(entryData) {
+    async _performValidation(__unused_entryData) /* eslint-disable-line no-unused-vars */ {
         throw new Error(`${this.constructor.name}: _performValidation() not implemented`);
     }
 }
@@ -124,7 +124,7 @@ export class VisitorEntryAgent extends EntryAgent {
 
         if (type === 'Pre-registered' && nicPassport) {
             // Check for a matching scheduled meeting today
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = new Date().toLocaleDateString('en-CA');
 
             const { data: meeting, error } = await this.client
                 .from('scheduled_meetings')

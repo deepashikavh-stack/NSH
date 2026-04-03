@@ -1,13 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { User, FileText, Phone, Send, CheckCircle, ArrowLeft, Loader } from 'lucide-react';
+import { User, FileText, Phone, Send, CheckCircle, ArrowLeft, Loader, Calendar, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { sendTelegramNotification } from '../lib/telegram';
 
 const PublicMeetingRequestView = () => {
-    const { t } = useTranslation();
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [formData, setFormData] = useState({
@@ -15,7 +11,10 @@ const PublicMeetingRequestView = () => {
         visitorNic: '',
         visitorContact: '',
         purpose: '',
-        meetingWith: ''
+        meetingWith: '',
+        meetingDate: '',
+        startTime: '',
+        endTime: ''
     });
 
     const generateUUID = () => {
@@ -45,9 +44,9 @@ const PublicMeetingRequestView = () => {
                     visitor_category: 'Parent',
                     meeting_with: formData.meetingWith || 'To be assigned',
                     purpose: formData.purpose,
-                    meeting_date: new Date().toISOString().split('T')[0],
-                    start_time: '10:00', // Default placeholders for requested meetings
-                    end_time: '11:00',
+                    meeting_date: formData.meetingDate || new Date().toLocaleDateString('en-CA'),
+                    start_time: formData.startTime || '10:00',
+                    end_time: formData.endTime || '11:00',
                     status: 'Meeting Requested',
                     approval_token: approvalToken,
                     request_source: 'webpage'
@@ -67,7 +66,9 @@ const PublicMeetingRequestView = () => {
                 approvalToken,
                 formData.visitorContact,
                 true, // isExternal flag
-                'webpage' // source
+                'webpage', // source
+                formData.meetingDate,
+                `${formData.startTime} - ${formData.endTime}`
             );
 
             if (telegramData?.message_id) {
@@ -148,7 +149,7 @@ const PublicMeetingRequestView = () => {
                                     placeholder="Your Full Name"
                                     value={formData.visitorName}
                                     onChange={(e) => setFormData({ ...formData, visitorName: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'white', outline: 'none' }}
+                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
                                 />
                             </div>
 
@@ -160,20 +161,32 @@ const PublicMeetingRequestView = () => {
                                     placeholder="NIC / Passport Number"
                                     value={formData.visitorNic}
                                     onChange={(e) => setFormData({ ...formData, visitorNic: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'white', outline: 'none' }}
+                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
                                 />
                             </div>
 
                             <div style={{ position: 'relative' }}>
-                                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                <input
-                                    type="tel"
-                                    required
-                                    placeholder="Contact Number"
-                                    value={formData.visitorContact}
-                                    onChange={(e) => setFormData({ ...formData, visitorContact: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'white', outline: 'none' }}
-                                />
+
+                                <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: formData.visitorContact && formData.visitorContact.replace('+94', '').length > 9 ? '1px solid #ef4444' : '1px solid var(--glass-border)', overflow: 'hidden' }}>
+                                    <span style={{ padding: '1rem 0.5rem 1rem 1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, borderRight: '1px solid var(--glass-border)' }}>+94</span>
+                                    <input
+                                        type="tel"
+                                        required
+                                        placeholder="775432765"
+                                        value={formData.visitorContact ? formData.visitorContact.replace(/^\+94/, '') : ''}
+                                        onChange={(e) => {
+                                            let val = e.target.value.replace(/\D/g, '');
+                                            if (val.startsWith('0')) val = val.substring(1);
+                                            setFormData({ ...formData, visitorContact: val ? '+94' + val : '' });
+                                        }}
+                                        pattern="\d{9}"
+                                        title="Contact number must be exactly 9 digits after +94"
+                                        style={{ width: '100%', padding: '1rem', backgroundColor: 'transparent', border: 'none', color: 'var(--text-main)', outline: 'none' }}
+                                    />
+                                </div>
+                                {formData.visitorContact && formData.visitorContact.replace('+94', '').length > 9 && (
+                                    <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block', position: 'absolute', bottom: '-20px', left: '1rem' }}>Invalid contact number (exceeds 9 digits)</span>
+                                )}
                             </div>
 
                             <div style={{ position: 'relative' }}>
@@ -184,7 +197,7 @@ const PublicMeetingRequestView = () => {
                                     placeholder="Staff Member to Meet"
                                     value={formData.meetingWith}
                                     onChange={(e) => setFormData({ ...formData, meetingWith: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'white', outline: 'none' }}
+                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
                                 />
                             </div>
 
@@ -193,11 +206,51 @@ const PublicMeetingRequestView = () => {
                                 <textarea
                                     required
                                     placeholder="Purpose of Meeting"
-                                    rows="3"
+                                    rows="1"
                                     value={formData.purpose}
                                     onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'white', outline: 'none', resize: 'none' }}
+                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none', resize: 'none' }}
                                 />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                                <div style={{ position: 'relative' }}>
+                                    <Calendar size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                    <input
+                                        type="date"
+                                        required
+                                        min={new Date().toLocaleDateString('en-CA')}
+                                        value={formData.meetingDate}
+                                        onChange={(e) => setFormData({ ...formData, meetingDate: e.target.value })}
+                                        style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
+                                    />
+                                    <span style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>Preferred Date</span>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <Clock size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                        <input
+                                            type="time"
+                                            required
+                                            value={formData.startTime}
+                                            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                                            style={{ width: '100%', padding: '1rem 0.5rem 1rem 2.5rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem' }}
+                                        />
+                                        <span style={{ position: 'absolute', left: '2.5rem', top: '-10px', fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 700 }}>START</span>
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                        <Clock size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                        <input
+                                            type="time"
+                                            required
+                                            value={formData.endTime}
+                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                            style={{ width: '100%', padding: '1rem 0.5rem 1rem 2.5rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem' }}
+                                        />
+                                        <span style={{ position: 'absolute', left: '2.5rem', top: '-10px', fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 700 }}>END</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

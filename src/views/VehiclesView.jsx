@@ -1,27 +1,121 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import LogTable from '../components/LogTable';
-import { Car, Search, PlusCircle, Camera, Clock } from 'lucide-react';
+import { Car, Search, PlusCircle, Camera, Clock, CheckCircle, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../lib/audit';
+import LogTable from '../components/LogTable';
 
 const VehiclesView = () => {
-    const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [entries, setEntries] = useState([]);
-    const [filteredEntries, setFilteredEntries] = useState([]);
     const [isMobileHeader, setIsMobileHeader] = useState(window.innerWidth <= 640);
-
-    // Filter States
-    const [searchQuery, setSearchQuery] = useState('');
-    const [typeFilter, setTypeFilter] = useState('All');
-    const [sbuFilter, setSbuFilter] = useState('All');
+    const [vehicleLogs, setVehicleLogs] = useState([]);
+    const [filters, setFilters] = useState({
+        fromDate: '',
+        toDate: '',
+        vehicleType: '',
+        isSbu: '',
+        status: ''
+    });
 
     useEffect(() => {
         const handleResize = () => setIsMobileHeader(window.innerWidth <= 640);
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        fetchVehicleLogs();
+        const interval = setInterval(fetchVehicleLogs, 10000);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearInterval(interval);
+        };
     }, []);
+
+    const fetchVehicleLogs = async () => {
+        const { data, error } = await supabase
+            .from('vehicle_entries')
+            .select('*')
+            .order('entry_time', { ascending: false })
+            .limit(100);
+
+        if (!error) {
+            setVehicleLogs((data || []).map(entry => ({
+                ...entry,
+                entryDateRaw: entry.entry_time ? entry.entry_time.split('T')[0] : ''
+            })));
+        }
+    };
+
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const clearFilters = () => setFilters({
+        fromDate: '',
+        toDate: '',
+        vehicleType: '',
+        isSbu: '',
+        status: ''
+    });
+
+    const filteredLogs = vehicleLogs.filter(entry => {
+        if (filters.fromDate && entry.entryDateRaw < filters.fromDate) return false;
+        if (filters.toDate && entry.entryDateRaw > filters.toDate) return false;
+        if (filters.vehicleType && entry.vehicle_type !== filters.vehicleType) return false;
+        if (filters.isSbu) {
+            const isSbuValue = filters.isSbu === 'Yes';
+            if (entry.is_sbu_vehicle !== isSbuValue) return false;
+        }
+        if (filters.status) {
+            const isCheckedOut = entry.exit_time != null;
+            if (filters.status === 'On-site' && isCheckedOut) return false;
+            if (filters.status === 'Checked-out' && !isCheckedOut) return false;
+        }
+        return true;
+    });
+
+    const handleCheckOut = async (vehicle) => {
+        const { error } = await supabase
+            .from('vehicle_entries')
+            .update({ exit_time: new Date().toISOString() })
+            .eq('id', vehicle.id);
+
+        if (!error) {
+            logAudit('Check-out', 'vehicle_entries', vehicle.id, 'Security Officer', {
+                vehicle_number: vehicle.vehicle_number,
+                driver: vehicle.driver_name
+            });
+            fetchVehicleLogs();
+        } else {
+            alert('Error checking out vehicle');
+        }
+    };
+
+    const logColumns = [
+        { header: 'Time', key: 'entry_time', render: (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+        { header: 'Vehicle No', key: 'vehicle_number' },
+        { header: 'Type', key: 'vehicle_type' },
+        { header: 'Driver', key: 'driver_name' },
+        { header: 'Purpose', key: 'purpose' },
+        { header: 'SBU', key: 'is_sbu_vehicle', render: (val) => val ? 'Yes' : 'No' },
+        { header: 'Status', key: 'exit_time', render: (val) => val ? 'Checked-out' : 'On-site' },
+        {
+            header: 'Actions',
+            key: 'actions',
+            render: (_, row) => !row.exit_time ? (
+                <button
+                    onClick={() => handleCheckOut(row)}
+                    className="btn-danger btn-sm btn-pill"
+                    style={{ gap: '0.4rem' }}
+                >
+                    Check-out
+                </button>
+            ) : (
+                <span className="btn-sm btn-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent)', fontWeight: 700 }}>
+                    <CheckCircle size={12} />
+                    Checked out
+                </span>
+            )
+        }
+    ];
 
     // Form State
     const [formData, setFormData] = useState({
@@ -32,47 +126,12 @@ const VehiclesView = () => {
         purpose: ''
     });
 
-    const fetchEntries = async () => {
-        const { data, error } = await supabase
-            .from('vehicle_entries')
-            .select('id, vehicle_number, vehicle_type, driver_name, is_sbu_vehicle, purpose, entry_time, exit_time, status')
-            .order('entry_time', { ascending: false });
-        if (data) setEntries(data);
-    };
-
-    useEffect(() => {
-        fetchEntries();
-    }, []);
-
-    useEffect(() => {
-        let result = entries;
-
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(entry =>
-                entry.vehicle_number?.toLowerCase().includes(query) ||
-                entry.driver_name?.toLowerCase().includes(query) ||
-                entry.purpose?.toLowerCase().includes(query)
-            );
-        }
-
-        if (typeFilter !== 'All') {
-            result = result.filter(entry => entry.vehicle_type === typeFilter);
-        }
-
-        if (sbuFilter !== 'All') {
-            const isSbu = sbuFilter === 'Yes';
-            result = result.filter(entry => entry.is_sbu_vehicle === isSbu);
-        }
-
-        setFilteredEntries(result);
-    }, [entries, searchQuery, typeFilter, sbuFilter]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { error } = await supabase
+            const { data: newEntry, error } = await supabase
                 .from('vehicle_entries')
                 .insert({
                     vehicle_number: formData.vehicleNumber,
@@ -80,19 +139,19 @@ const VehiclesView = () => {
                     driver_name: formData.driverName,
                     is_sbu_vehicle: formData.isSbuVehicle === 'Yes',
                     purpose: formData.purpose
-                });
+                })
+                .select()
+                .single();
 
 
             if (error) throw error;
 
-            await fetchEntries();
             logAudit('Log Vehicle', 'vehicle_entries', null, 'Security Officer', {
                 vehicle_number: formData.vehicleNumber,
                 type: formData.vehicleType,
                 driver: formData.driverName,
                 is_sbu: formData.isSbuVehicle === 'Yes'
             });
-            setShowForm(false);
             setFormData({
                 vehicleNumber: '',
                 isSbuVehicle: 'No',
@@ -100,64 +159,15 @@ const VehiclesView = () => {
                 driverName: '',
                 purpose: ''
             });
-            alert('Vehicle entry logged successfully!');
+            fetchVehicleLogs();
+            alert('Vehicle entry authorized successfully!');
         } catch (error) {
-            alert('Error logging vehicle: ' + error.message);
+            alert('Error authorizing vehicle: ' + error.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCheckOut = async (vehicleId) => {
-        const { error } = await supabase
-            .from('vehicle_entries')
-            .update({ exit_time: new Date().toISOString() })
-            .eq('id', vehicleId);
-
-        if (error) {
-            alert("Error checking out vehicle: " + error.message);
-        } else {
-            const vehicle = entries.find(e => e.id === vehicleId);
-            logAudit('Check-out Vehicle', 'vehicle_entries', vehicleId, 'Admin', {
-                vehicle_number: vehicle?.vehicle_number,
-                driver: vehicle?.driver_name
-            });
-            await fetchEntries();
-        }
-    };
-
-    const columns = [
-        { header: 'Vehicle Number', key: 'vehicle_number' },
-        { header: 'Type', key: 'vehicle_type' },
-        { header: 'Driver', key: 'driver_name' },
-        { header: 'SBU Vehicle', key: 'is_sbu_vehicle', render: (val) => val ? 'Yes' : 'No' },
-        { header: 'Purpose', key: 'purpose' },
-        { header: 'Entry Time', key: 'entry_time', render: (val) => new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
-        {
-            header: 'Exit Time',
-            key: 'exit_time',
-            render: (val, row) => {
-                if (val) return new Date(val).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                return (
-                    <button
-                        onClick={() => handleCheckOut(row.id)}
-                        style={{
-                            padding: '4px 12px',
-                            borderRadius: '6px',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            color: '#3b82f6',
-                            border: '1px solid rgba(59, 130, 246, 0.2)',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                        }}
-                    >
-                        Check-out
-                    </button>
-                );
-            }
-        },
-    ];
 
     return (
         <div className="animate-fade-in" style={{ padding: '1rem 0' }}>
@@ -189,214 +199,141 @@ const VehiclesView = () => {
                     }} className="desktop-only">
                         <Camera size={18} /> ANPR Simulation
                     </button>
-                    <button
-                        className="btn-primary"
-                        onClick={() => setShowForm(true)}
-                        style={{
-                            flex: isMobileHeader ? 1 : 'none',
-                            borderRadius: '12px',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        <PlusCircle size={18} /> Log Vehicle
-                    </button>
                 </div>
             </div>
 
-            {/* Search and Filters Bar */}
-            <div style={{
-                display: 'flex',
-                flexDirection: isMobileHeader ? 'column' : 'row',
-                gap: '1rem',
-                marginBottom: '1.5rem',
-                padding: '0 1rem'
-            }}>
-                <div style={{ position: 'relative', flex: 2 }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input
-                        type="text"
-                        placeholder="Search vehicle, driver or purpose..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem 1rem 0.75rem 3rem',
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: '12px',
-                            color: 'var(--text-main)',
-                            fontSize: '0.875rem'
-                        }}
-                    />
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', flex: 1.5 }}>
-                    <select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
-                        style={{
-                            flex: 1,
-                            padding: '0.75rem',
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: '12px',
-                            color: 'var(--text-main)',
-                            fontSize: '0.875rem',
-                            outline: 'none'
-                        }}
-                    >
-                        <option style={{ backgroundColor: '#1a1d21' }}>All Types</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Car</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Van</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Bus</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Motorbike</option>
-                        <option style={{ backgroundColor: '#1a1d21' }}>Truck (Vendor)</option>
-                    </select>
-                    <select
-                        value={sbuFilter}
-                        onChange={(e) => setSbuFilter(e.target.value)}
-                        style={{
-                            flex: 1,
-                            padding: '0.75rem',
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: '12px',
-                            color: 'var(--text-main)',
-                            fontSize: '0.875rem',
-                            outline: 'none'
-                        }}
-                    >
-                        <option style={{ backgroundColor: '#1a1d21' }} value="All">All SBU</option>
-                        <option style={{ backgroundColor: '#1a1d21' }} value="Yes">SBU Only</option>
-                        <option style={{ backgroundColor: '#1a1d21' }} value="No">Non-SBU</option>
-                    </select>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-                <LogTable title="Live Vehicle Log" data={filteredEntries} columns={columns} />
-            </div>
-
-            {showForm && createPortal(
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 9999,
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)'
-                }}>
-                    <div className="modal-content-wrapper animate-fade-in-static">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Access Log - Vehicle</h3>
-                            <button
-                                onClick={() => setShowForm(false)}
-                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', padding: '0.5rem', borderRadius: '10px' }}
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1.25rem' }}>
-
-                            {/* Timestamp Display */}
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Access Timestamp</label>
-                                <div style={{
-                                    padding: '1rem',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                                    borderRadius: '12px',
-                                    color: 'var(--text-main)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    fontWeight: 600,
-                                    border: '1px solid var(--glass-border)'
-                                }}>
-                                    <Clock size={16} style={{ color: 'var(--primary)' }} />
-                                    {new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Vehicle Reg. No *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="E.G., CAB-1234"
-                                    value={formData.vehicleNumber}
-                                    onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
-                                    style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>SBU Vehicle</label>
-                                <select
-                                    value={formData.isSbuVehicle}
-                                    onChange={(e) => setFormData({ ...formData, isSbuVehicle: e.target.value })}
-                                    style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
-                                >
-                                    <option style={{ backgroundColor: '#1a1d21' }}>No</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Yes</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Type of Vehicle</label>
-                                <select
-                                    value={formData.vehicleType}
-                                    onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
-                                    style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--glass-border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
-                                >
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Car</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Van</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Bus</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Motorbike</option>
-                                    <option style={{ backgroundColor: '#1a1d21' }}>Truck (Vendor)</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Driver Name *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Enter driver name"
-                                    value={formData.driverName}
-                                    onChange={(e) => setFormData({ ...formData, driverName: e.target.value })}
-                                    style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Purpose of Entry *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="e.g., Delivery, Staff, Maintenance"
-                                    value={formData.purpose}
-                                    onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                                    style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
-                                />
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="button" onClick={() => setShowForm(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1px solid var(--glass-border)' }}>Cancel</button>
-                                <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={loading}>
-                                    {loading ? 'Processing...' : 'Authorize Entry'}
-                                </button>
-                            </div>
-                        </form>
+            {/* Vehicle Entry Form (Inline) */}
+            <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '16px' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
+                    <PlusCircle size={20} style={{ color: 'var(--primary)' }} />
+                    Log New Vehicle Entry
+                </h3>
+                <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: isMobileHeader ? '1fr' : 'repeat(3, 1fr)', gap: '1.25rem', alignItems: 'end' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Vehicle Reg. No *</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="E.G., CAB-1234"
+                            value={formData.vehicleNumber}
+                            onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                            style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
+                        />
                     </div>
-                </div>,
-                document.body
-            )}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>SBU Vehicle</label>
+                        <select
+                            value={formData.isSbuVehicle}
+                            onChange={(e) => setFormData({ ...formData, isSbuVehicle: e.target.value })}
+                            style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
+                        >
+                            <option style={{ backgroundColor: '#1a1d21' }}>No</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Yes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Type of Vehicle</label>
+                        <select
+                            value={formData.vehicleType}
+                            onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                            style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--glass-border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
+                        >
+                            <option style={{ backgroundColor: '#1a1d21' }}>Car</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Van</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Bus</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Motorbike</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Truck (Vendor)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Driver Name *</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="Enter driver name"
+                            value={formData.driverName}
+                            onChange={(e) => setFormData({ ...formData, driverName: e.target.value })}
+                            style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Purpose of Entry *</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="e.g., Delivery, Staff, Maintenance"
+                            value={formData.purpose}
+                            onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                            style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
+                        />
+                    </div>
+                    <button type="submit" className="btn-primary" style={{ width: '100%', height: '42px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} disabled={loading}>
+                        {loading ? 'Processing...' : 'Authorize Entry'}
+                    </button>
+                </form>
+            </div>
+
+            {/* Filter Section */}
+            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                    <Filter size={18} color="var(--primary)" />
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Filter Records</h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>From (Entry)</label>
+                        <input type="date" name="fromDate" value={filters.fromDate} onChange={handleFilterChange} className="input-field" style={{ width: '100%', padding: '0.625rem', fontSize: '0.875rem' }} />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>To (Entry)</label>
+                        <input type="date" name="toDate" value={filters.toDate} onChange={handleFilterChange} className="input-field" style={{ width: '100%', padding: '0.625rem', fontSize: '0.875rem' }} />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Vehicle Type</label>
+                        <select name="vehicleType" value={filters.vehicleType} onChange={handleFilterChange} className="input-field" style={{ width: '100%', padding: '0.625rem', fontSize: '0.875rem' }}>
+                            <option value="">All Types</option>
+                            <option value="Car">Car</option>
+                            <option value="Van">Van</option>
+                            <option value="Bus">Bus</option>
+                            <option value="Motorbike">Motorbike</option>
+                            <option value="Truck (Vendor)">Truck</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>SBU Vehicle</label>
+                        <select name="isSbu" value={filters.isSbu} onChange={handleFilterChange} className="input-field" style={{ width: '100%', padding: '0.625rem', fontSize: '0.875rem' }}>
+                            <option value="">All</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Status</label>
+                        <select name="status" value={filters.status} onChange={handleFilterChange} className="input-field" style={{ width: '100%', padding: '0.625rem', fontSize: '0.875rem' }}>
+                            <option value="">All Statuses</option>
+                            <option value="On-site">On-site</option>
+                            <option value="Checked-out">Checked-out</option>
+                        </select>
+                    </div>
+                </div>
+                {(filters.fromDate || filters.toDate || filters.vehicleType || filters.isSbu || filters.status) && (
+                    <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '1rem' }}>
+                        <button onClick={clearFilters} className="btn-secondary btn-sm btn-pill" style={{ padding: '0.4rem 1rem', fontSize: '0.75rem', gap: '0.5rem' }}>Clear Active Filters</button>
+                    </div>
+                )}
+            </div>
+
+            {/* Vehicle Activity Logs */}
+            <LogTable
+                title="Vehicle Logs"
+                data={filteredLogs}
+                columns={logColumns}
+                period={
+                    filters.fromDate && filters.toDate ? `${filters.fromDate} to ${filters.toDate}` :
+                    filters.fromDate ? `From ${filters.fromDate}` :
+                    filters.toDate ? `Up to ${filters.toDate}` : 'Live Feed'
+                }
+            />
         </div>
     );
 };
