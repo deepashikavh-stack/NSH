@@ -50,7 +50,7 @@ export class PDFExportService {
         this.title = title;
         this.metadata = {};
         this.tables = [];
-        this.logoBase64 = null;
+        this.logos = { ngs: null, lyceum: null };
         this.orientation = 'p'; // default portrait
     }
 
@@ -79,7 +79,7 @@ export class PDFExportService {
      * @returns {PDFExportService} this
      */
     async withLogo() {
-        this.logoBase64 = await PDFExportService._loadLogoBase64();
+        this.logos = await PDFExportService._loadLogos();
         return this;
     }
 
@@ -100,8 +100,8 @@ export class PDFExportService {
      * @returns {Promise<void>}
      */
     async export(filename) {
-        // Auto-load logo if not already loaded
-        if (!this.logoBase64) {
+        // Auto-load logos if not already loaded
+        if (!this.logos.ngs) {
             await this.withLogo();
         }
 
@@ -142,7 +142,7 @@ export class PDFExportService {
     // ─── Private Drawing Methods ─────────────────────────────────────────────
 
     _drawHeader(doc, pageWidth) {
-        const H = 75; // Balanced height for title + dual branding
+        const H = 45; // Further reduced header height
 
         setFill(doc, COLORS.headerBg);
         doc.rect(0, 0, pageWidth, H, 'F');
@@ -150,41 +150,53 @@ export class PDFExportService {
         setFill(doc, COLORS.primary);
         doc.rect(0, 0, 4, H, 'F');
 
+        const logoSize = 12;
         const textMargin = 12;
+        const topY = 8;
 
-        // --- 1. Centered Title (Top Middle) ---
+        // --- 1. Logos ---
+        if (this.logos.ngs) {
+            // NGS logo is 843x1024 (0.82:1 ratio)
+            const ngsH = 12;
+            const ngsW = ngsH * 0.82;
+            doc.addImage(this.logos.ngs, 'PNG', textMargin, topY, ngsW, ngsH);
+        }
+        if (this.logos.lyceum) {
+            // New Lyceum logo from user is 1024x224 (approx 4.57:1 ratio)
+            const lyceumW = 55; 
+            const lyceumH = lyceumW / 4.57;
+            doc.addImage(this.logos.lyceum, 'PNG', pageWidth - textMargin - lyceumW, topY + 2, lyceumW, lyceumH);
+        }
+
+        // --- 2. Centered Title (Now at bottom of header to avoid overlap) ---
         setText(doc, COLORS.white);
-        doc.setFontSize(16);
+        doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         const displayTitle = this.title === 'Visitor Logs' ? 'VISITOR LOG' : 
                             this.title === 'Vehicle Logs' ? 'VEHICLE LOG' : 
                             this.title.toUpperCase();
-        doc.text(displayTitle, pageWidth / 2, 12, { align: 'center' });
+        doc.text(displayTitle, pageWidth / 2, H - 8, { align: 'center' });
 
-        // --- 2. Left Side: Nextgen Shield (Below Title) ---
+        // --- 3. Left Side: Nextgen Shield ---
+        const leftTextX = textMargin + logoSize + 4;
         setText(doc, COLORS.primary);
-        doc.setFontSize(11);
+        doc.setFontSize(8.5);
         doc.setFont('helvetica', 'bold');
-        doc.text('Nextgen Shield (Private) Limited', textMargin, 26);
+        doc.text('Nextgen Shield (Private) Limited', leftTextX, topY + 4);
 
         setText(doc, COLORS.white);
-        doc.setFontSize(7.5);
+        doc.setFontSize(6.5);
         doc.setFont('helvetica', 'normal');
-        doc.text('10 Raymond Rd, 9th Floor, Nugegoda', textMargin, 31);
-        doc.text('Contact: 077 771 3900', textMargin, 36);
+        doc.text('10 Raymond Rd, 9th Floor, Nugegoda', leftTextX, topY + 8);
+        doc.text('Contact: 077 771 3900', leftTextX, topY + 11);
 
-        // --- 3. Right Side: Lyceum (Below Title) ---
-        setText(doc, COLORS.primary);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Lyceum International School (Private) Limited', pageWidth - textMargin, 26, { align: 'right' });
-
+        // --- 4. Right Side: Lyceum (Now using final provided brand asset) ---
+        const rightTextX = pageWidth - textMargin;
         setText(doc, COLORS.white);
-        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'normal');
-        doc.text('8/3A, Arthur V. Dias Mawatha, Walana, Panadura', pageWidth - textMargin, 31, { align: 'right' });
-        doc.text('12500, Sri Lanka', pageWidth - textMargin, 36, { align: 'right' });
-        doc.text('Contact: 0384 548 585', pageWidth - textMargin, 41, { align: 'right' });
+        doc.setFontSize(6.5);
+        doc.text('Walana, Panadura, Sri Lanka', rightTextX, topY + 16, { align: 'right' });
+        doc.text('Contact: 0384 548 585', rightTextX, topY + 19, { align: 'right' });
 
         setDraw(doc, COLORS.primary);
         doc.setLineWidth(0.8);
@@ -398,10 +410,26 @@ export class PDFExportService {
 
     // ─── Static Helpers ──────────────────────────────────────────────────────
 
-    static _loadLogoBase64() {
-        return new Promise((resolve) => {
+    static _loadLogos() {
+        const paths = {
+            ngs: '/ngs-logo.png',
+            lyceum: '/lyceum-logo.png',
+            fallback: '/logo.png'
+        };
+
+        const loadOne = (url) => new Promise((resolve) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                img.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(null);
+            img.src = url;
+            // Fix for canvas drawer typo
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 canvas.width = img.naturalWidth;
@@ -410,9 +438,15 @@ export class PDFExportService {
                 ctx.drawImage(img, 0, 0);
                 resolve(canvas.toDataURL('image/png'));
             };
-            img.onerror = () => resolve(null);
-            img.src = '/logo.png';
         });
+
+        return (async () => {
+            const [ngs, lyceum] = await Promise.all([
+                loadOne(paths.ngs),
+                loadOne(paths.lyceum)
+            ]);
+            return { ngs, lyceum };
+        })();
     }
 }
 

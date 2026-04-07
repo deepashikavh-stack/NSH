@@ -396,7 +396,7 @@ const ReportsView = ({ user }) => {
             labels: ['On-Arrival', 'Via System', 'Via Web Page'],
             datasets: [{
                 data: [kiosk, system, webPage],
-                backgroundColor: [COLORS[0], COLORS[1], COLORS[3]],
+                backgroundColor: [COLORS[0], 'rgba(59,130,246,0.85)', COLORS[3]],
                 borderWidth: 2,
                 borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
             }]
@@ -688,7 +688,7 @@ const ReportsView = ({ user }) => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
                             {[
                                 { label: 'Total Visitors', value: visitors.length, color: '#2563eb', icon: Users },
-                                { label: 'Pre-Scheduled', value: visitors.filter(v => v.is_pre_registered).length, color: '#10b981', icon: CheckCircle },
+                                { label: 'Pre-Scheduled', value: visitors.filter(v => v.is_pre_registered).length, color: '#3b82f6', icon: CheckCircle },
                                 { label: 'Via Web Page', value: visitors.filter(v => v.source_tag === 'pre-scheduled-via web page').length, color: '#8b5cf6', icon: TrendingUp },
                                 { label: 'Currently Inside', value: visitors.filter(v => !v.exit_time).length, color: '#f59e0b', icon: Clock }
                             ].map(kpi => (
@@ -732,7 +732,7 @@ const ReportsView = ({ user }) => {
                                     <span>Pre-scheduled visitors only · <strong style={{ color: '#f59e0b' }}>Standard: arrivals delayed &gt;15 min after scheduled time are marked as late</strong></span>
                                 }
                                 icon={Clock}
-                                color="#10b981"
+                                color="#2563eb"
                                 onExport={exportOnTimeArrival}
                             >
                                 <div style={{ height: '260px' }}>

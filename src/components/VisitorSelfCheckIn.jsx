@@ -730,24 +730,33 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
 
                 {/* Main Glass Card */}
                 <div className="card animate-fade-in" style={{
+                    position: 'relative',
                     width: '100%',
-                    backgroundColor: 'var(--glass-bg)',
-                    backdropFilter: 'blur(25px)',
-                    WebkitBackdropFilter: 'blur(25px)',
+                    background: 'var(--glass-bg)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
                     border: '1px solid var(--glass-border)',
-                    borderRadius: '24px',
-                    padding: '4.5rem 1.5rem 1.5rem 1.5rem',
+                    borderRadius: '32px',
+                    padding: '2.5rem 2rem 2rem',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '1rem'
+                    gap: '0.75rem'
                 }}>
                     <div style={{ textAlign: 'center' }}>
                         <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
                             {step === 1 ? t('kiosk.title') : t('kiosk.identity')}
                         </h2>
                         <p style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                            {step === 1 ? t('kiosk.subtitle') : `${t(`kiosk.${formData.visitorType.toLowerCase()}`)} ${t('kiosk.entry_portal_suffix')}`}
+                            {step === 1 ? t('kiosk.subtitle') : (
+                                (() => {
+                                    const typeKey = `kiosk.${formData.visitorType.toLowerCase().replace(' ', '_')}`;
+                                    const translatedType = t(typeKey);
+                                    // If translation returns the key (fallback), use raw visitorType and remove kiosk prefix if needed
+                                    const displayType = translatedType.includes('kiosk.') ? formData.visitorType : translatedType;
+                                    return `${displayType} ${t('kiosk.entry_portal_suffix')}`;
+                                })()
+                            )}
                         </p>
                     </div>
 
@@ -786,27 +795,27 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
                     )}
 
                     {step === 2 && (
-                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 
-                            {/* Pre-scheduled Toggle Section */}
+                            {/* Pre-scheduled Toggle Section - Compact */}
                             <div
                                 onClick={() => setFormData(p => ({ ...p, isScheduled: !p.isScheduled }))}
                                 style={{
-                                    padding: '1.25rem',
+                                    padding: '0.625rem 1rem',
                                     backgroundColor: formData.isScheduled ? 'rgba(37, 99, 235, 0.1)' : 'rgba(255, 255, 255, 0.02)',
                                     border: '1px solid',
                                     borderColor: formData.isScheduled ? 'rgba(37, 99, 235, 0.4)' : 'rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '16px',
+                                    borderRadius: '12px',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '1rem',
+                                    gap: '0.75rem',
                                     transition: 'var(--transition)'
                                 }}
                             >
                                 <div style={{
-                                    width: '20px',
-                                    height: '20px',
+                                    width: '18px',
+                                    height: '18px',
                                     borderRadius: '4px',
                                     border: '2px solid rgba(255,255,255,0.3)',
                                     display: 'flex',
@@ -815,400 +824,147 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
                                     backgroundColor: formData.isScheduled ? 'var(--primary)' : 'transparent',
                                     borderColor: formData.isScheduled ? 'var(--primary)' : 'rgba(255,255,255,0.3)'
                                 }}>
-                                    {formData.isScheduled && <CheckCircle size={14} color="#fff" />}
+                                    {formData.isScheduled && <CheckCircle size={12} color="#fff" />}
                                 </div>
-                                <span style={{ color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600 }}>{t('kiosk.scheduled_toggle')}</span>
+                                <span style={{ color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>{t('kiosk.scheduled_toggle')}</span>
                             </div>
-
-                            <p className="animate-fade-in" style={{
-                                color: 'rgba(255,255,255,0.6)',
-                                fontSize: '0.9rem',
-                                marginTop: '-0.5rem',
-                                textAlign: 'center',
-                                width: '100%',
-                                display: 'block'
-                            }}>
-                                {t('kiosk.request_msg')}
-                            </p>
 
                             {/* Verification Section */}
                             {formData.isScheduled && (
                                 <div style={{
                                     display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '1rem',
-                                    padding: '1.5rem',
-                                    backgroundColor: 'rgba(0,0,0,0.2)',
-                                    borderRadius: '20px',
-                                    border: '1px dashed rgba(255,255,255,0.1)'
+                                    flexDirection: 'column', gap: '0.75rem', padding: '1rem',
+                                    backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.1)'
                                 }}>
                                     <div style={{ position: 'relative' }}>
-                                        <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                        <Search size={16} style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                         <input
                                             type="text"
                                             placeholder={formData.visitorType === 'Lyceum' ? t('kiosk.emp_code_placeholder') : t('kiosk.nic_placeholder')}
                                             value={formData.visitors[0].nic}
                                             onChange={(e) => updateVisitor(0, 'nic', e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '1rem 1rem 1rem 3rem',
-                                                backgroundColor: '#fff',
-                                                borderRadius: '12px',
-                                                border: 'none',
-                                                color: '#1e293b',
-                                                fontWeight: 600,
-                                                fontSize: '1rem',
-                                                outline: 'none'
-                                            }}
+                                            style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.9rem', outline: 'none' }}
                                         />
                                     </div>
                                     <button
-                                        type="button"
-                                        onClick={handleVerifySchedule}
-                                        disabled={verifying}
-                                        style={{
-                                            padding: '1rem 3rem',
-                                            background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
-                                            color: '#fff',
-                                            borderRadius: '12px',
-                                            fontWeight: 800,
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            width: 'fit-content',
-                                            alignSelf: 'center',
-                                            boxShadow: '0 8px 16px rgba(0,0,0,0.15)'
-                                        }}
+                                        type="button" onClick={handleVerifySchedule} disabled={verifying}
+                                        style={{ padding: '0.625rem 2rem', background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)', color: '#fff', borderRadius: '10px', fontWeight: 800, border: 'none', cursor: 'pointer', alignSelf: 'center', fontSize: '0.9rem' }}
                                     >
-                                        {verifying ? <Loader className="animate-spin" size={18} /> : t('kiosk.verify_button')}
+                                        {verifying ? <Loader className="animate-spin" size={16} /> : t('kiosk.verify_button')}
                                     </button>
-                                    {error && <p style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}>{error}</p>}
+                                    {error && <p style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 700, textAlign: 'center' }}>{error}</p>}
                                 </div>
                             )}
 
-                            {/* Data Entry Fields - Multiple Visitors */}
+                            {/* Data Entry Fields */}
                             {(!formData.isScheduled || scheduleMatch) && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                        {formData.visitors.map((visitor, index) => (
-                                            <div key={index} style={{
-                                                padding: '1rem',
-                                                backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                                                borderRadius: '16px',
-                                                border: '1px solid rgba(255, 255, 255, 0.05)',
-                                                display: 'grid',
-                                                gridTemplateColumns: '1fr 1fr 1fr',
-                                                gap: '1rem',
-                                                position: 'relative',
-                                                alignItems: 'flex-start'
-                                            }}>
-                                                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '-0.5rem' }}>
-                                                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
-                                                        {t('kiosk.visitor_label', { count: index + 1 })}
-                                                    </span>
-                                                    {index > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeVisitor(index)}
-                                                            style={{ padding: '0.25rem', backgroundColor: 'transparent', color: '#ef4444', opacity: 0.7 }}
-                                                        >
-                                                            <XCircle size={18} />
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                <div style={{ position: 'relative' }}>
-                                                    <FileText size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                                    <input
-                                                        type="text"
-                                                        required
-                                                        readOnly={formData.isScheduled && index === 0}
-                                                        placeholder={formData.visitorType === 'Lyceum' ? t('kiosk.emp_code_placeholder') : t('kiosk.nic_placeholder')}
-                                                        value={visitor.nic}
-                                                        onChange={(e) => updateVisitor(index, 'nic', e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                            backgroundColor: '#fff',
-                                                            borderRadius: '12px',
-                                                            border: 'none',
-                                                            color: '#1e293b',
-                                                            fontWeight: 600,
-                                                            fontSize: '0.9375rem',
-                                                            outline: 'none'
-                                                        }}
-                                                    />
-                                                </div>
-
-                                                <div style={{ position: 'relative' }}>
-                                                    <User size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                                    <input
-                                                        type="text"
-                                                        required
-                                                        readOnly={!!scheduleMatch && index === 0}
-                                                        placeholder={t('kiosk.name_placeholder')}
-                                                        value={visitor.name}
-                                                        onChange={(e) => updateVisitor(index, 'name', e.target.value)}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                            backgroundColor: '#fff',
-                                                            borderRadius: '12px',
-                                                            border: 'none',
-                                                            color: '#1e293b',
-                                                            fontWeight: 600,
-                                                            fontSize: '0.9375rem',
-                                                            outline: 'none'
-                                                        }}
-                                                    />
-                                                </div>
-
-                                                {/* Contact Number Field */}
-                                                <div style={{ position: 'relative' }}>
-
-                                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: '#fff', borderRadius: '12px', border: visitor.contact && visitor.contact.replace('+94', '').length > 9 ? '1px solid #ef4444' : 'none', overflow: 'hidden' }}>
-                                                        <span style={{ padding: '0.875rem 0.5rem 0.875rem 1rem', color: '#94a3b8', fontWeight: 600, borderRight: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }}>+94</span>
-                                                        <input
-                                                            type="tel"
-                                                            required={!formData.isScheduled}
-                                                            placeholder="775432765"
-                                                            value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
-                                                            onChange={(e) => {
-                                                                let val = e.target.value.replace(/\D/g, '');
-                                                                if (val.startsWith('0')) val = val.substring(1);
-                                                                updateVisitor(index, 'contact', val ? '+94' + val : '');
-                                                            }}
-                                                            pattern="\d{9}"
-                                                            title="Contact number must be exactly 9 digits after +94"
-                                                            style={{
-                                                                width: '100%',
-                                                                padding: '0.875rem 1rem',
-                                                                backgroundColor: 'transparent',
-                                                                border: 'none',
-                                                                color: '#1e293b',
-                                                                fontWeight: 600,
-                                                                fontSize: '0.9375rem',
-                                                                outline: 'none'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    {visitor.contact && visitor.contact.replace('+94', '').length > 9 && (
-                                                        <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block', position: 'absolute', bottom: '-20px', left: '1rem' }}>Invalid contact number (exceeds 9 digits)</span>
-                                                    )}
-                                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {formData.visitors.map((visitor, index) => (
+                                        <div key={index} style={{
+                                            padding: '0.75rem', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)',
+                                            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', alignItems: 'end'
+                                        }}>
+                                            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '-0.25rem' }}>
+                                                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                                                    {t('kiosk.visitor_label', { count: index + 1 })}
+                                                </span>
+                                                {index > 0 && (
+                                                    <XCircle size={16} color="#ef4444" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => removeVisitor(index)} />
+                                                )}
                                             </div>
-                                        ))}
-
-                                        {(!formData.isScheduled || scheduleMatch) && (
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={addVisitor}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.75rem',
-                                                        backgroundColor: 'rgba(251, 146, 60, 0.9)',
-                                                        color: '#fff',
-                                                        borderRadius: '12px',
-                                                        fontWeight: 700,
-                                                        fontSize: '0.9rem',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '0.5rem',
-                                                        boxShadow: '0 4px 12px rgba(251, 146, 60, 0.3)'
-                                                    }}
-                                                >
-                                                    {loading ? <Loader className="animate-spin" size={16} /> : (
-                                                        <>
-                                                            {t('kiosk.add_visitor_button')} <ArrowRight size={16} />
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: formData.visitorType === 'Lyceum' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1rem' }}>
-                                        {formData.visitorType === 'Lyceum' && (
                                             <div style={{ position: 'relative' }}>
-                                                <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                                <select
-                                                    required
-                                                    value={formData.sbu}
-                                                    onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                        backgroundColor: '#fff',
-                                                        borderRadius: '12px',
-                                                        border: 'none',
-                                                        color: '#1e293b',
-                                                        fontWeight: 600,
-                                                        fontSize: '0.9375rem',
-                                                        outline: 'none',
-                                                        appearance: 'none',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    <option value="" disabled>{t('kiosk.sbu_placeholder')}</option>
-                                                    {COMPANIES.map(comp => (
-                                                        <option key={comp.code} value={comp.name}>
-                                                            {comp.name} ({comp.code})
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <FileText size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                <input type="text" required placeholder={formData.visitorType === 'Lyceum' ? t('kiosk.emp_code_placeholder') : t('kiosk.nic_placeholder')} value={visitor.nic} onChange={(e) => updateVisitor(index, 'nic', e.target.value)}
+                                                    style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 2.25rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem' }} />
                                             </div>
-                                        )}
-
-                                        {BRANCH_REQUIRED_COMPANIES.includes(formData.sbu) && (
                                             <div style={{ position: 'relative' }}>
-                                                <MapPin size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    placeholder={t('kiosk.branch_placeholder')}
-                                                    value={formData.branch}
-                                                    onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                        backgroundColor: '#fff',
-                                                        borderRadius: '12px',
-                                                        border: 'none',
-                                                        color: '#1e293b',
-                                                        fontWeight: 600,
-                                                        fontSize: '0.9375rem',
-                                                        outline: 'none'
-                                                    }}
-                                                />
+                                                <User size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                <input type="text" required placeholder={t('kiosk.name_placeholder')} value={visitor.name} onChange={(e) => updateVisitor(index, 'name', e.target.value)}
+                                                    style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 2.25rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem' }} />
                                             </div>
-                                        )}
-
-                                        <div style={{ position: 'relative' }}>
-                                            <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                            <input
-                                                type="text"
-                                                required
-                                                readOnly={!!scheduleMatch}
-                                                placeholder={t('kiosk.host_placeholder')}
-                                                value={formData.meetingWith || (scheduleMatch ? scheduleMatch.meeting_with : '')}
-                                                onChange={(e) => setFormData({ ...formData, meetingWith: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                    backgroundColor: '#fff',
-                                                    borderRadius: '12px',
-                                                    border: 'none',
-                                                    color: '#1e293b',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9375rem',
-                                                    outline: 'none'
-                                                }}
-                                            />
+                                            <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#fff', borderRadius: '10px' }}>
+                                                <span style={{ padding: '0.625rem 0.5rem', color: '#94a3b8', fontWeight: 700, fontSize: '0.75rem', borderRight: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }}>+94</span>
+                                                <input type="tel" required placeholder="775432765" value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
+                                                    onChange={(e) => {
+                                                        let val = e.target.value.replace(/\D/g, '');
+                                                        if (val.startsWith('0')) val = val.substring(1);
+                                                        updateVisitor(index, 'contact', val ? '+94' + val : '');
+                                                    }}
+                                                    style={{ width: '100%', padding: '0.625rem 0.75rem', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem', outline: 'none' }} />
+                                            </div>
                                         </div>
+                                    ))}
 
-                                        <div style={{ position: 'relative' }}>
-                                            <FileText size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                            <input
-                                                type="text"
-                                                required
-                                                readOnly={!!scheduleMatch}
-                                                placeholder={t('kiosk.purpose_placeholder')}
-                                                value={formData.purpose}
-                                                onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.875rem 1rem 0.875rem 2.75rem',
-                                                    backgroundColor: '#fff',
-                                                    borderRadius: '12px',
-                                                    border: 'none',
-                                                    color: '#1e293b',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9375rem',
-                                                    outline: 'none'
-                                                }}
-                                            />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                                        <button type="button" onClick={addVisitor} style={{ padding: '0.625rem', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', border: '1px solid var(--glass-border)', cursor: 'pointer' }}>
+                                            + {t('kiosk.add_visitor_button')}
+                                        </button>
+                                        <div style={{ position: 'relative', gridColumn: '2 / 4' }}>
+                                            <select required value={formData.sbu} onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
+                                                style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 1rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem', appearance: 'none' }}>
+                                                <option value="" disabled>{t('kiosk.sbu_placeholder')}</option>
+                                                {COMPANIES.map(comp => <option key={comp.code} value={comp.name}>{comp.name}</option>)}
+                                            </select>
                                         </div>
                                     </div>
 
-                                    {/* Requested Date & Time Section */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                        <div style={{ position: 'relative' }}>
+                                            <User size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                            <input type="text" required placeholder={t('kiosk.host_placeholder')} value={formData.meetingWith || (scheduleMatch ? scheduleMatch.meeting_with : '')} onChange={(e) => setFormData({ ...formData, meetingWith: e.target.value })}
+                                                style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 2.25rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem' }} />
+                                        </div>
+                                        <div style={{ position: 'relative' }}>
+                                            <FileText size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                            <input type="text" required placeholder={t('kiosk.purpose_placeholder')} value={formData.purpose} onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                                                style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 2.25rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem' }} />
+                                        </div>
+                                    </div>
+
                                     {!formData.isScheduled && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Requested Date</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <Calendar size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                                    <input
-                                                        type="date"
-                                                        required
-                                                        value={formData.requestedDate}
-                                                        onChange={(e) => setFormData({ ...formData, requestedDate: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', backgroundColor: '#fff', borderRadius: '12px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.9375rem', outline: 'none' }}
-                                                    />
-                                                </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <label style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, textTransform: 'uppercase' }}>Date</label>
+                                                <input type="date" required value={formData.requestedDate} onChange={(e) => setFormData({ ...formData, requestedDate: e.target.value })}
+                                                    style={{ flex: 1, padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', border: 'none', fontSize: '0.8rem', fontWeight: 600 }} />
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Preferred Time</label>
-                                                <div style={{ position: 'relative' }}>
-                                                    <Clock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                                    <input
-                                                        type="time"
-                                                        required
-                                                        value={formData.requestedTime}
-                                                        onChange={(e) => setFormData({ ...formData, requestedTime: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', backgroundColor: '#fff', borderRadius: '12px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.9375rem', outline: 'none' }}
-                                                    />
-                                                </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <label style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, textTransform: 'uppercase' }}>Time</label>
+                                                <input type="time" required value={formData.requestedTime} onChange={(e) => setFormData({ ...formData, requestedTime: e.target.value })}
+                                                    style={{ flex: 1, padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', border: 'none', fontSize: '0.8rem', fontWeight: 600 }} />
                                             </div>
                                         </div>
                                     )}
 
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        style={{
-                                            width: 'fit-content',
-                                            minWidth: '240px',
-                                            padding: '0.875rem 2rem',
-                                            background: formData.isScheduled ? 'var(--primary)' : 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)', // Lighter orange gradient
-                                            color: '#fff',
-                                            borderRadius: '14px',
-                                            fontSize: '1rem',
-                                            fontWeight: 700,
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            marginTop: '0.5rem',
-                                            boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
-                                            display: 'flex',
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                            gap: '0.75rem',
-                                            alignSelf: 'center'
-                                        }}
-                                    >
+                                    <button type="submit" disabled={loading} style={{
+                                        width: 'fit-content',
+                                        minWidth: '240px',
+                                        padding: '0.875rem 2.5rem',
+                                        background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
+                                        color: '#fff',
+                                        borderRadius: '12px',
+                                        fontSize: '1rem',
+                                        fontWeight: 800,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        marginTop: '0.5rem',
+                                        alignSelf: 'center',
+                                        boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        justifyContent: 'center'
+                                    }}>
                                         {loading ? <Loader className="animate-spin" size={20} /> : (formData.isScheduled ? t('common.submit') : t('kiosk.schedule_button'))}
                                     </button>
                                 </div>
                             )}
 
-                            {/* Utility Links matched to reference style */}
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                padding: '0 0.5rem',
-                                fontSize: '0.8125rem',
-                                fontWeight: 700,
-                                color: 'rgba(255,255,255,0.4)'
-                            }}>
-                                <span onClick={() => step === 2 && !typeFromUrl && setStep(1)} style={{ cursor: step === 2 && !typeFromUrl ? 'pointer' : 'default' }}>
-                                    {step === 2 && !typeFromUrl ? t('kiosk.change_profile') : ''}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 0.5rem', fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
+                                <span onClick={() => !typeFromUrl && setStep(1)} style={{ cursor: !typeFromUrl ? 'pointer' : 'default' }}>
+                                    {!typeFromUrl ? t('kiosk.change_profile') : ''}
                                 </span>
-                                <span
-                                    onClick={() => onClose ? onClose() : navigate('/')}
-                                    style={{ cursor: 'pointer', color: 'rgba(239, 68, 68, 0.6)' }}
-                                >
+                                <span onClick={() => onClose ? onClose() : navigate('/')} style={{ cursor: 'pointer', color: 'rgba(239, 68, 68, 0.6)' }}>
                                     {t('kiosk.cancel_entry')}
                                 </span>
                             </div>
@@ -1217,7 +973,7 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
                 </div>
 
                 <div style={{
-                    marginTop: '3.5rem',
+                    marginTop: '1.5rem',
                     color: 'rgba(255,255,255,0.4)',
                     fontSize: '0.75rem',
                     textAlign: 'center',

@@ -49,9 +49,9 @@ const AuditTrailView = () => {
     });
 
     return (
-        <div className="animate-fade-in" style={{ padding: '1.5rem 0' }}>
+        <div className="animate-fade-in" style={{ padding: '1rem 0' }}>
             {/* Page Header */}
-            <div style={{ marginBottom: '2rem' }}>
+            <div style={{ marginBottom: '1.25rem' }}>
                 <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', marginBottom: '0.25rem' }}>
                     Audit Trail
                 </h2>
@@ -60,7 +60,7 @@ const AuditTrailView = () => {
                 </p>
             </div>
 
-            <div className="card" style={{ padding: '2rem' }}>
+            <div className="card" style={{ padding: '1.25rem' }}>
                 {/* Controls Row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
                     {/* Category Tabs */}
@@ -70,7 +70,7 @@ const AuditTrailView = () => {
                                 key={tab}
                                 onClick={() => setAuditTab(tab)}
                                 style={{
-                                    padding: '0.5rem 1.25rem',
+                                    padding: '0.4rem 1rem',
                                     borderRadius: '10px',
                                     border: '1px solid var(--glass-border)',
                                     backgroundColor: auditTab === tab ? 'var(--primary)' : 'rgba(255,255,255,0.03)',
@@ -134,7 +134,7 @@ const AuditTrailView = () => {
 
                 {/* Table */}
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 0.5rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 0.25rem' }}>
                         <thead>
                             <tr>
                                 {['Timestamp', 'Action', 'User', 'Details', 'Data'].map((h, i) => (
@@ -175,7 +175,7 @@ const AuditTrailView = () => {
                                     return (
                                         <React.Fragment key={log.id}>
                                             <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                                                <td style={{ padding: '1rem', borderRadius: '12px 0 0 12px', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                                                <td style={{ padding: '0.625rem 1rem', borderRadius: '12px 0 0 12px', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                         <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
                                                             {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
@@ -185,7 +185,7 @@ const AuditTrailView = () => {
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1rem' }}>
+                                                <td style={{ padding: '0.625rem 1rem' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                             <div style={{ padding: '0.25rem', borderRadius: '6px', backgroundColor: `${category.color}15`, color: category.color }}>
@@ -198,15 +198,15 @@ const AuditTrailView = () => {
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1rem', fontSize: '0.8125rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                                                <td style={{ padding: '0.625rem 1rem', fontSize: '0.8125rem', color: 'var(--text-main)', fontWeight: 600 }}>
                                                     {log.user_id || 'System'}
                                                 </td>
-                                                <td style={{ padding: '1rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                                                <td style={{ padding: '0.625rem 1rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                                                     {log.details?.name ? `Target: ${log.details.name}` : ''}
                                                     {log.table_name && !log.details?.name ? `Module: ${log.table_name}` : ''}
                                                     {!log.details?.name && !log.table_name ? 'System Event' : ''}
                                                 </td>
-                                                <td style={{ padding: '1rem', borderRadius: '0 12px 12px 0', textAlign: 'center' }}>
+                                                <td style={{ padding: '0.625rem 1rem', borderRadius: '0 12px 12px 0', textAlign: 'center' }}>
                                                     <button
                                                         onClick={() => setExpandedLog(isExpanded ? null : log.id)}
                                                         style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.5rem' }}

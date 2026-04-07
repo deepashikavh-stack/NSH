@@ -212,9 +212,9 @@ export class AlertService extends BaseService {
     }
 
     /**
-     * Generate alerts for pending meeting requests.
-     * NOTE: This is now largely handled by a database trigger (tr_on_meeting_requested).
-     * This method serves as a secondary reconciliation scan.
+     * Reconcile pending meeting requests.
+     * NOTE: Primary generation is now handled by the database trigger (tr_on_meeting_requested).
+     * This method acts as a safety fallback to catch any requests that failed to trigger.
      */
     async _generateMeetingApprovalAlerts() {
         const { data: pending } = await this.client
@@ -238,6 +238,7 @@ export class AlertService extends BaseService {
                         visitor: m.visitor_name,
                         purpose: m.purpose,
                         date: m.meeting_date,
+                        reconciled: true // Flag to indicate backup generation
                     }
                 });
             }

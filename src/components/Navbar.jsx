@@ -142,7 +142,7 @@ const Navbar = ({ activeTab, user, theme, toggleTheme, onToggleSidebar, isMobile
                     }} className="desktop-only"></div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <div style={{ textAlign: 'right' }} className="desktop-only">
-                            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>{user?.role || 'User'}</p>
+                            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>{user?.username || 'User'}</p>
                         </div>
                         <div style={{
                             width: isMobile ? '32px' : '40px',

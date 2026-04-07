@@ -26,9 +26,10 @@
     "kiosk": {
         "title": "Visitor Check-In",
         "subtitle": "Select your profile",
-        "parents": "School Parent",
+        "parent": "Parent",
+        "parents": "Parent",
         "lyceum": "Lyceum Staff",
-        "other": "Guest / Other",
+        "other": "Other",
         "identity": "Identity Verification",
         "scheduled_toggle": "I have a pre-scheduled appointment",
         "nic_placeholder": "ID No. / Passport Number",
