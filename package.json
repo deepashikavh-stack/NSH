@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
     "validate:arch": "node scripts/validate-architecture.js",
@@ -30,7 +30,8 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.0",
     "react-i18next": "^16.5.3",
-    "react-router-dom": "^7.12.0"
+    "react-router-dom": "^7.12.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -142,7 +142,7 @@ export class PDFExportService {
     // ─── Private Drawing Methods ─────────────────────────────────────────────
 
     _drawHeader(doc, pageWidth) {
-        const H = 52;
+        const H = 75; // Balanced height for title + dual branding
 
         setFill(doc, COLORS.headerBg);
         doc.rect(0, 0, pageWidth, H, 'F');
@@ -150,29 +150,41 @@ export class PDFExportService {
         setFill(doc, COLORS.primary);
         doc.rect(0, 0, 4, H, 'F');
 
-        const logoSize = 20;
-        const logoX = 10;
-        const logoY = (H - logoSize) / 2;
-        if (this.logoBase64) {
-            doc.addImage(this.logoBase64, 'PNG', logoX, logoY, logoSize, logoSize);
-        }
+        const textMargin = 12;
 
-        const textX = this.logoBase64 ? logoX + logoSize + 5 : 12;
-
-        setText(doc, COLORS.primary);
-        doc.setFontSize(13);
+        // --- 1. Centered Title (Top Middle) ---
+        setText(doc, COLORS.white);
+        doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('Nextgen Shield (Private) Limited', textX, 19);
+        const displayTitle = this.title === 'Visitor Logs' ? 'VISITOR LOG' : 
+                            this.title === 'Vehicle Logs' ? 'VEHICLE LOG' : 
+                            this.title.toUpperCase();
+        doc.text(displayTitle, pageWidth / 2, 12, { align: 'center' });
 
-        // Office Address
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text('10 Raymond Rd, 9th Floor, Nugegoda', textX, 24);
+        // --- 2. Left Side: Nextgen Shield (Below Title) ---
+        setText(doc, COLORS.primary);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Nextgen Shield (Private) Limited', textMargin, 26);
 
         setText(doc, COLORS.white);
-        doc.setFontSize(10);
+        doc.setFontSize(7.5);
         doc.setFont('helvetica', 'normal');
-        doc.text(this.title, textX, 34);
+        doc.text('10 Raymond Rd, 9th Floor, Nugegoda', textMargin, 31);
+        doc.text('Contact: 077 771 3900', textMargin, 36);
+
+        // --- 3. Right Side: Lyceum (Below Title) ---
+        setText(doc, COLORS.primary);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Lyceum International School (Private) Limited', pageWidth - textMargin, 26, { align: 'right' });
+
+        setText(doc, COLORS.white);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text('8/3A, Arthur V. Dias Mawatha, Walana, Panadura', pageWidth - textMargin, 31, { align: 'right' });
+        doc.text('12500, Sri Lanka', pageWidth - textMargin, 36, { align: 'right' });
+        doc.text('Contact: 0384 548 585', pageWidth - textMargin, 41, { align: 'right' });
 
         setDraw(doc, COLORS.primary);
         doc.setLineWidth(0.8);

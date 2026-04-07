@@ -64,39 +64,45 @@ export const sendTelegramNotification = async (visitorNames, purpose, meetingWit
     const chatId = CHAT_ID;
     const envAppUrl = import.meta.env.VITE_APP_URL;
     const currentUrl = window.location.origin;
-    const appUrl = (envAppUrl && envAppUrl !== 'your_app_url_here') ? envAppUrl : currentUrl;
+    let appUrl = (envAppUrl && envAppUrl !== 'your_app_url_here') ? envAppUrl : currentUrl;
 
-    const isLocalhost = appUrl.includes('localhost') || appUrl.includes('127.0.0.1');
+    // Sanitize appUrl: remove trailing slashes to prevent double-slash errors (e.g., https://domain.com//path)
+    appUrl = appUrl.replace(/\/+$/, '');
+
+    const isLocalAddress = (url) => {
+        return url.includes('localhost') || 
+               url.includes('127.0.0.1') || 
+               /^http:\/\/(10|192\.168|172\.(1[6-9]|2[0-9]|3[0-1]))/.test(url);
+    };
+
+    const isLocalhost = isLocalAddress(appUrl);
 
     if (!chatId || chatId === 'your_chat_id_here') {
         if (import.meta.env.DEV) console.warn('Telegram Notification Skipped: Missing VITE_TELEGRAM_CHAT_ID in .env');
         return null;
     }
 
-    const fullApproveUrl = `${appUrl}/appointment-approval?request_id=${visitorId}`;
+    const fullApproveUrl = `${appUrl}/appointment-approval?meeting_id=${visitorId}`;
 
     const sourceTag = source === 'webpage' ? ' (from webpage)' : (isExternal ? ' (via the web page)' : ' (On-Arrival)');
 
     const message = `
 🚨 <b>New Meeting Request</b> ${sourceTag}
 
-👤 <b>Visitor:</b> ${escapeHTML(visitorNames)}
+👤 <b>Visitors:</b> ${escapeHTML(visitorNames)}
 📞 <b>Contact:</b> ${escapeHTML(contactNumber || 'Not Provided')}
 🏢 <b>Purpose:</b> ${escapeHTML(purpose)}
 🤝 <b>Meeting With:</b> ${escapeHTML(meetingWith || 'Not Specified')}
 ${requestedDate ? `🕒 <b>Requested Time:</b> ${requestedDate} at ${requestedTime}\n` : ''}
 
-${isLocalhost ? `🔗 <b>Approval Link:</b>\n<code>${fullApproveUrl}</code>\n\n<i>(Tap to copy. Paste this in your browser on the computer running the server.)</i>` : '📍 <b>Next Step:</b> Please set the time via the Secure Portal.'}
+${isLocalhost ? `🔗 <b>Approval Link:</b>\n<code>${fullApproveUrl}</code>\n\n<i>(Tap to copy. Paste this in your browser on the computer running the server.)</i>` : `📍 <b>Action Required:</b> Please review this request in the Secure Portal.`}
     `.trim();
 
     // Inline Buttons
     const inline_keyboard = [];
+    inline_keyboard.push([{ text: "🕒 Approve & Set Time", url: fullApproveUrl }]);
 
-    if (!isLocalhost) {
-        inline_keyboard.push([{ text: "🕒 Approve & Set Time", url: fullApproveUrl }]);
-    }
-
-    inline_keyboard.push([{ text: "❌ Reject", callback_data: `reject_mtg:${visitorId}` }]);
+    inline_keyboard.push([{ text: "❌ Reject", callback_data: `reject_mtg_group:${visitorId}` }]);
 
     const keyboard = { inline_keyboard };
 

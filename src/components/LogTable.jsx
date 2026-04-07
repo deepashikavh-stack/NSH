@@ -1,6 +1,6 @@
-import React from 'react';
-import { MoreVertical, CheckCircle, Clock, XCircle, Download } from 'lucide-react';
+import { MoreVertical, CheckCircle, Clock, XCircle, Download, FileSpreadsheet } from 'lucide-react';
 import { exportToPDF } from '../utils/pdfExport';
+import { exportToExcel } from '../utils/excelExport';
 
 const LogTable = ({ title, data, columns, period }) => {
     const handleExport = async () => {
@@ -17,6 +17,21 @@ const LogTable = ({ title, data, columns, period }) => {
                 period: period || 'Live Feed'
             },
             orientation: 'l' // Landscape to fit extra columns securely
+        });
+    };
+
+    const handleExcelExport = () => {
+        // Exclude 'actions' column from Excel report as requested
+        const exportColumns = columns.filter(col => col.key !== 'actions');
+
+        exportToExcel({
+            title: title,
+            data: data,
+            columns: exportColumns,
+            filename: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}`,
+            metadata: { 
+                period: period || 'Live Feed'
+            }
         });
     };
 
@@ -95,6 +110,25 @@ const LogTable = ({ title, data, columns, period }) => {
                     >
                         <Download size={14} /> PDF
                     </button>
+                    <button
+                        onClick={handleExcelExport}
+                        className="btn-secondary"
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            color: 'var(--accent)',
+                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                        }}
+                    >
+                        <FileSpreadsheet size={14} /> Excel
+                    </button>
                 </div>
             </div>
 
@@ -163,10 +197,11 @@ const LogTable = ({ title, data, columns, period }) => {
                                 }}>
                                     {columns.flatMap(c => c.subColumns || [c]).map((col, colIdx) => (
                                         <td key={colIdx} style={{
-                                            padding: '0.75rem 1rem',
-                                            fontSize: '0.875rem',
+                                            padding: '0.4rem 1rem',
+                                            fontSize: '0.8125rem',
                                             color: 'var(--text-secondary)',
-                                            fontWeight: 500
+                                            fontWeight: 500,
+                                            whiteSpace: 'nowrap'
                                         }}>
                                             {col.key === 'status' ? getStatusBadge(row[col.key]) :
                                                 col.key === 'method' ? getMethodBadge(row[col.key]) :

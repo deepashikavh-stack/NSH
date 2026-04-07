@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, ShieldAlert, CheckCircle, Clock, XCircle, Filter } from 'lucide-react';
+import { Users, ShieldAlert, CheckCircle, Clock, XCircle, Filter, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../lib/audit';
 import LogTable from '../components/LogTable';
@@ -15,6 +15,7 @@ const VisitorManagementView = ({ user }) => {
         scheduledDate: '',
         status: ''
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     const fetchVisitorData = async () => {
         setLoading(true);
@@ -139,6 +140,13 @@ const VisitorManagementView = ({ user }) => {
     const overdueVisitors = unifiedLog.filter(entry => entry.category === 'Visitor' && !entry.exit_time);
 
     const filteredLog = unifiedLog.filter(entry => {
+        const matchesSearch = 
+            (entry.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (entry.employeeCode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (entry.purpose || '').toLowerCase().includes(searchTerm.toLowerCase());
+            
+        if (!matchesSearch) return false;
+
         if (filters.fromDate && entry.checkedInDateRaw < filters.fromDate) return false;
         if (filters.toDate && entry.checkedInDateRaw > filters.toDate) return false;
         if (filters.visitorType && entry.displayType !== filters.visitorType) return false;
@@ -233,8 +241,23 @@ const VisitorManagementView = ({ user }) => {
             <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
                     <Filter size={18} color="var(--primary)" />
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Filter Records</h3>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Filter & Search</h3>
                 </div>
+                
+                <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                        <Users size={18} />
+                    </div>
+                    <input 
+                        type="text"
+                        placeholder="Search by name, NIC, or purpose..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '12px', fontSize: '0.875rem' }}
+                    />
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                     <div>
                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>From (Checked-in)</label>

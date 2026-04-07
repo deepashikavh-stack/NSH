@@ -20,7 +20,6 @@ const ScheduledMeetingsView = () => {
 
     // New states for integrated sections
     const [scheduledArrivals, setScheduledArrivals] = useState([]);
-    const [pendingApprovals, setPendingApprovals] = useState([]);
     const [confirmingMeeting, setConfirmingMeeting] = useState(null);
 
     const approveToken = searchParams.get('approve_token');
@@ -59,24 +58,18 @@ const ScheduledMeetingsView = () => {
 
     useEffect(() => {
         fetchMeetings();
-        fetchPendingApprovals();
         fetchScheduledArrivals();
 
-        // Real-time subscription for approvals
+        // Real-time subscription for scheduled changes
         const subscription = supabase
             .channel('meetings-ops-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'visitors' }, () => {
-                fetchPendingApprovals();
-            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_meetings' }, () => {
-                fetchPendingApprovals();
                 fetchScheduledArrivals();
                 fetchMeetings();
             })
             .subscribe();
 
         const interval = setInterval(() => {
-            fetchPendingApprovals();
             fetchScheduledArrivals();
         }, 5000);
 
@@ -94,86 +87,6 @@ const ScheduledMeetingsView = () => {
             .eq('meeting_date', today)
             .in('status', ['Scheduled', 'Confirmed', 'Approved']);
         setScheduledArrivals(data || []);
-    };
-
-    const fetchPendingApprovals = async () => {
-        const [{ data: visitors }, { data: meetingRequests }] = await Promise.all([
-            supabase.from('visitors').select('*').eq('status', 'Pending'),
-            supabase.from('scheduled_meetings').select('*').eq('status', 'Meeting Requested')
-        ]);
-
-        const merged = [
-            ...(visitors || []).map(v => ({ ...v, sourceTable: 'visitors' })),
-            ...(meetingRequests || []).map(m => ({
-                id: m.id,
-                name: m.visitor_name,
-                nic_passport: m.visitor_nic,
-                purpose: m.purpose,
-                meeting_with: m.meeting_with,
-                entry_time: m.created_at,
-                status: m.status,
-                sourceTable: 'scheduled_meetings',
-                telegram_chat_id: m.telegram_chat_id,
-                telegram_message_id: m.telegram_message_id
-            }))
-        ].sort((a, b) => new Date(a.entry_time) - new Date(b.entry_time));
-        setPendingApprovals(merged);
-    };
-
-    const handleApprove = async (id, sourceTable = 'visitors') => {
-        if (sourceTable === 'scheduled_meetings') {
-            const { data: meeting } = await supabase.from('scheduled_meetings').select('*').eq('id', id).single();
-            await supabase.from('scheduled_meetings').update({ status: 'Scheduled', start_time: '10:00', end_time: '11:00' }).eq('id', id);
-            if (meeting?.telegram_chat_id) {
-                const newText = formatApprovedMessage({
-                    visitorNames: meeting.visitor_name,
-                    purpose: meeting.purpose,
-                    meetingWith: meeting.meeting_with,
-                    requestReceived: new Date(meeting.created_at).toLocaleTimeString(),
-                    approvedBy: 'Admin',
-                    approvedAt: new Date().toLocaleTimeString(),
-                    startTime: '10:00',
-                    endTime: '11:00',
-                    date: meeting.meeting_date
-                });
-                updateTelegramMessage(meeting.telegram_chat_id, meeting.telegram_message_id, newText);
-            }
-        } else {
-            const { data: visitor } = await supabase.from('visitors').select('*').eq('id', id).single();
-            await supabase.from('scheduled_meetings').insert({
-                visitor_name: visitor.name,
-                visitor_nic: visitor.nic_passport,
-                visitor_category: 'On-arrival',
-                purpose: visitor.purpose,
-                meeting_with: visitor.meeting_with,
-                meeting_date: new Date().toISOString().split('T')[0],
-                status: 'Scheduled'
-            });
-            await supabase.from('visitors').update({ status: 'Meeting Scheduled' }).eq('id', id);
-        }
-        fetchPendingApprovals();
-        fetchScheduledArrivals();
-    };
-
-    const handleReject = async (id, sourceTable = 'visitors') => {
-        if (sourceTable === 'scheduled_meetings') {
-            const { data: meeting } = await supabase.from('scheduled_meetings').select('*').eq('id', id).single();
-            await supabase.from('scheduled_meetings').update({ status: 'Cancelled' }).eq('id', id);
-            if (meeting?.telegram_chat_id) {
-                const newText = formatDeniedMessage({
-                    visitorNames: meeting.visitor_name,
-                    purpose: meeting.purpose,
-                    meetingWith: meeting.meeting_with,
-                    actionBy: 'Admin',
-                    actionAt: new Date().toLocaleTimeString()
-                });
-                updateTelegramMessage(meeting.telegram_chat_id, meeting.telegram_message_id, newText);
-            }
-        } else {
-            await supabase.from('visitors').update({ status: 'Denied' }).eq('id', id);
-        }
-        fetchPendingApprovals();
-        fetchScheduledArrivals();
     };
 
     const handleCheckIn = (meeting) => setConfirmingMeeting(meeting);
@@ -350,26 +263,7 @@ const ScheduledMeetingsView = () => {
                 </div>
             </div>
 
-            {/* Pending Approvals (Integrated) */}
-            {pendingApprovals.length > 0 && (
-                <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid rgba(234, 179, 8, 0.3)', background: 'rgba(234, 179, 8, 0.05)' }}>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#EAB308', marginBottom: '1rem' }}>Pending Approvals ({pendingApprovals.length})</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1rem' }}>
-                        {pendingApprovals.map(req => (
-                            <div key={req.id} style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{req.name}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>To meet: {req.meeting_with}</div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button onClick={() => handleApprove(req.id, req.sourceTable)} style={{ padding: '0.4rem', color: '#10b981', backgroundColor: 'transparent' }}><CheckCircle size={18} /></button>
-                                    <button onClick={() => handleReject(req.id, req.sourceTable)} style={{ padding: '0.4rem', color: '#ef4444', backgroundColor: 'transparent' }}><XCircle size={18} /></button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+
 
             {/* Filters & Search */}
             <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -383,9 +277,10 @@ const ScheduledMeetingsView = () => {
                         style={{
                             width: '100%',
                             padding: '0.625rem 1rem 0.625rem 2.5rem',
-                            borderRadius: '8px',
+                            borderRadius: '12px',
                             border: '1px solid var(--border)',
-                            outline: 'none'
+                            outline: 'none',
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)'
                         }}
                     />
                 </div>
@@ -396,7 +291,7 @@ const ScheduledMeetingsView = () => {
                             onClick={() => setFilter(f)}
                             style={{
                                 padding: '0.5rem 1rem',
-                                borderRadius: '8px',
+                                borderRadius: '12px',
                                 textTransform: 'capitalize',
                                 backgroundColor: filter === f ? 'var(--primary)' : 'transparent',
                                 color: filter === f ? 'white' : 'var(--text-muted)',

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AlertService } from '../services/AlertService';
+import { supabase } from '../lib/supabase';
 
 /**
  * AlertContext — Thin React wrapper around AlertService.
@@ -32,6 +33,8 @@ export const AlertProvider = ({ children, user }) => {
         setLoading(true);
         try {
             // Generate system alerts (idempotent — won't duplicate)
+            // Note: DB Triggers handle new meeting requests immediately now.
+            // This call still manages time-based alerts (overstays).
             await alertService.generateSystemAlerts();
 
             // Fetch all alerts
@@ -59,9 +62,30 @@ export const AlertProvider = ({ children, user }) => {
     };
 
     useEffect(() => {
+        // Initial fetch
         fetchAlerts();
-        const interval = setInterval(fetchAlerts, 60000 * 5); // Poll every 5 minutes
-        return () => clearInterval(interval);
+
+        // Real-time subscription for instant dashboard updates
+        const channel = supabase
+            .channel('public:alerts')
+            .on(
+                'postgres_changes', 
+                { event: '*', schema: 'public', table: 'alerts' }, 
+                (payload) => {
+                    console.log('AlertContext: Real-time alert change received:', payload.eventType);
+                    fetchAlerts();
+                }
+            )
+            .subscribe();
+
+        // Fallback polling for time-based alerts (e.g., overstays)
+        // Interval increased as triggers handle the most critical "new" events.
+        const interval = setInterval(fetchAlerts, 60000); 
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearInterval(interval);
+        };
     }, [fetchAlerts]);
 
     return (

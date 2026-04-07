@@ -15,7 +15,7 @@ import { MeetingService } from './MeetingService';
  */
 export class AlertService extends BaseService {
     /** Roles allowed to view/manage alerts */
-    static ALERT_ROLES = ['Security Officer', 'Security HOD'];
+    static ALERT_ROLES = ['Admin', 'Security Officer', 'Security HOD', 'School Operations', 'School Management'];
 
     constructor() {
         super('alerts');
@@ -35,17 +35,20 @@ export class AlertService extends BaseService {
 
     /**
      * Generate all system alerts by checking for anomalies.
-     * Delegates detection to domain services and creates alert records.
+     * Delegates detection logic to specific sub-generators.
      * @returns {Promise<void>}
      */
     async generateSystemAlerts() {
         const todayStr = new Date().toLocaleDateString('en-CA');
 
         try {
+            // Run all alert generation logic in parallel
             await Promise.all([
                 this._generateVisitorAlerts(todayStr),
                 this._generateVehicleAlerts(todayStr),
                 this._generateMeetingAlerts(),
+                this._generateMeetingApprovalAlerts(),
+                this._generateMeetingApprovedAlerts(),
             ]);
         } catch (err) {
             if (err.message?.includes('alerts')) {
@@ -206,5 +209,74 @@ export class AlertService extends BaseService {
                 .maybeSingle()
         );
         return !!results;
+    }
+
+    /**
+     * Generate alerts for pending meeting requests.
+     * NOTE: This is now largely handled by a database trigger (tr_on_meeting_requested).
+     * This method serves as a secondary reconciliation scan.
+     */
+    async _generateMeetingApprovalAlerts() {
+        const { data: pending } = await this.client
+            .from('scheduled_meetings')
+            .select('id, visitor_name, purpose, meeting_date')
+            .or('status.eq.Pending,status.eq.Meeting Requested');
+
+        if (!pending || pending.length === 0) return;
+
+        for (const m of pending) {
+            const exists = await this._alertExistsBySourceAndCategory(m.id, 'Pending Approval');
+            if (!exists) {
+                await this.create({
+                    type: 'Meeting',
+                    category: 'Pending Approval',
+                    severity: 'info',
+                    source_id: m.id,
+                    title: 'New Meeting Request',
+                    message: `Initial request from ${m.visitor_name} requires review.`,
+                    details: {
+                        visitor: m.visitor_name,
+                        purpose: m.purpose,
+                        date: m.meeting_date,
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Generate alerts for newly approved meetings.
+     * NOTE: This can also be moved to a database trigger in the future.
+     */
+    async _generateMeetingApprovedAlerts() {
+        const todayStr = new Date().toLocaleDateString('en-CA');
+
+        const { data: approved } = await this.client
+            .from('scheduled_meetings')
+            .select('id, visitor_name, meeting_with, start_time, end_time, meeting_date')
+            .eq('status', 'Approved')
+            .gte('created_at', todayStr);
+
+        if (!approved || approved.length === 0) return;
+
+        for (const m of approved) {
+            const exists = await this._alertExistsBySourceAndCategory(m.id, 'Meeting Approved');
+            if (!exists) {
+                await this.create({
+                    type: 'Meeting',
+                    category: 'Meeting Approved',
+                    severity: 'success',
+                    source_id: m.id,
+                    title: 'Meeting Approved',
+                    message: `Appointment for ${m.visitor_name} has been finalized.`,
+                    details: {
+                        visitor: m.visitor_name,
+                        with: m.meeting_with,
+                        time: `${m.start_time} - ${m.end_time}`,
+                        date: m.meeting_date,
+                    }
+                });
+            }
+        }
     }
 }

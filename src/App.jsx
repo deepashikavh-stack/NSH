@@ -129,16 +129,16 @@ function AppContent() {
 
   const isVisitorSelection = location.pathname === '/';
   const isKioskMode = location.pathname.startsWith('/kiosk');
-  const isApprovalLink = location.search.includes('approve_token=');
+  const isApprovalLink = location.search.includes('approve_token=') || location.search.includes('meeting_id=') || location.search.includes('request_id=');
   const isPublicMeetingRequest = location.pathname === '/request-meeting';
-  const isAppointmentApproval = location.pathname === '/appointment-approval';
+  const isAppointmentApproval = location.pathname.startsWith('/appointment-approval');
 
   if (!user && !isKioskMode && !isApprovalLink && !isPublicMeetingRequest && !isAppointmentApproval && location.pathname !== '/' && location.pathname !== '/login') {
     return <Navigate to="/" replace />;
   }
 
   // The approval link is now internal, so we don't want it to act as "standalone" (without sidebar/navbar)
-  const isStandalone = isVisitorSelection || isKioskMode || isPublicMeetingRequest || isAppointmentApproval;
+  const isStandalone = isVisitorSelection || isKioskMode || isPublicMeetingRequest || isAppointmentApproval || isApprovalLink;
 
   return (
     <AlertProvider user={user}>
@@ -228,6 +228,9 @@ function AppContent() {
             padding: (user && !isStandalone && !isMobile) ? '0 1.5rem 1.5rem 0' : '0'
           }}>
             <Routes>
+              <Route path="/appointment-approval" element={<AppointmentApprovalView />} />
+              <Route path="/request-meeting" element={<PublicMeetingRequestView />} />
+              
               <Route path="/" element={<VisitorTypeSelection theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/login" element={<LoginPage onLogin={handleLogin} onBack={() => navigate('/')} />} />
 
@@ -276,8 +279,7 @@ function AppContent() {
               <Route path="/kiosk/check-out" element={<VisitorCheckOut theme={theme} toggleTheme={toggleTheme} />} />
               <Route path="/kiosk/vehicles" element={<VehiclesView />} />
 
-              <Route path="/request-meeting" element={<PublicMeetingRequestView />} />
-              <Route path="/appointment-approval" element={<AppointmentApprovalView />} />
+              {/* Public routes already handled at the top */}
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

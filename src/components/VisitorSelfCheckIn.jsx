@@ -368,17 +368,14 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
             // Case 2: WALK-IN MEETING REQUEST (PURE SCHEDULING)
             // Note: Case 1 is now handled by handleVerifySchedule directly
             const approvalToken = generateUUID();
+            const meetingGroupId = `REQ-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-            // Only create ONE meeting request for the group (or multiple if system expects separate)
-            // We'll create one for the primary visitor for now as per system behavior
-            const primaryVisitor = formData.visitors[0];
-
-            const { data: meeting, error: insertError } = await supabase
-                .from('scheduled_meetings')
-                .insert({
-                    visitor_name: primaryVisitor.name,
-                    visitor_nic: primaryVisitor.nic,
-                    visitor_contact: primaryVisitor.contact,
+            const insertData = formData.visitors
+                .filter(v => v.name && v.nic)
+                .map(v => ({
+                    visitor_name: v.name,
+                    visitor_nic: v.nic,
+                    visitor_contact: v.contact || '',
                     visitor_category: 'On-arrival',
                     meeting_with: formData.meetingWith || 'To be assigned',
                     purpose: formData.purpose,
@@ -392,40 +389,53 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
                         return `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                     })(),
                     status: 'Meeting Requested',
-                    approval_token: approvalToken
-                })
-                .select()
-                .single();
+                    approval_token: approvalToken,
+                    meeting_id: meetingGroupId,
+                    request_source: 'kiosk'
+                }));
+
+            const { data: insertedData, error: insertError } = await supabase
+                .from('scheduled_meetings')
+                .insert(insertData)
+                .select();
 
             if (insertError) throw insertError;
+            
+            // Set the ID of the first visitor/meeting to monitor for approval
+            if (insertedData && insertedData.length > 0) {
+                setVisitorId(insertedData[0].id);
+            }
 
-            setVisitorId(meeting.id);
             setSubmittedData(formData);
             setApprovalStatus('pending');
 
             // Trigger Telegram Notification
             const visitorNames = formData.visitors.map(v => v.name).join(', ');
-            console.log("Triggering Telegram for:", visitorNames);
+            const allContacts = [...new Set(formData.visitors.map(v => v.contact).filter(c => c))].join(', ');
+            
+            console.log("Triggering Telegram for Group:", visitorNames);
             try {
                 const telegramData = await sendTelegramNotification(
                     visitorNames,
                     formData.purpose,
                     formData.meetingWith,
-                    meeting.id,
+                    meetingGroupId, 
                     approvalToken,
-                    primaryVisitor.contact,
+                    allContacts,
                     false,
                     'On-arrival',
                     formData.requestedDate,
                     formData.requestedTime
                 );
 
-                if (telegramData?.message_id) {
-                    console.log("Telegram success:", telegramData);
+                if (telegramData?.result?.message_id || telegramData?.message_id) {
+                    const msgId = telegramData?.result?.message_id || telegramData?.message_id;
+                    const chId = telegramData?.result?.chat?.id || telegramData?.chat_id;
+
                     await supabase.from('scheduled_meetings').update({
-                        telegram_message_id: telegramData.message_id.toString(),
-                        telegram_chat_id: telegramData.chat_id.toString()
-                    }).eq('id', meeting.id);
+                        telegram_message_id: msgId.toString(),
+                        telegram_chat_id: chId.toString()
+                    }).eq('meeting_id', meetingGroupId);
                 } else {
                     console.error("Telegram notification returned null or failed.");
                 }

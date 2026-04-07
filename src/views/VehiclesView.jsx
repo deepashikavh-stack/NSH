@@ -16,6 +16,8 @@ const VehiclesView = () => {
         isSbu: '',
         status: ''
     });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [specifyOther, setSpecifyOther] = useState('');
 
     useEffect(() => {
         const handleResize = () => setIsMobileHeader(window.innerWidth <= 640);
@@ -57,6 +59,13 @@ const VehiclesView = () => {
     });
 
     const filteredLogs = vehicleLogs.filter(entry => {
+        const matchesSearch = 
+            (entry.vehicle_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (entry.driver_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (entry.purpose || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+        if (!matchesSearch) return false;
+
         if (filters.fromDate && entry.entryDateRaw < filters.fromDate) return false;
         if (filters.toDate && entry.entryDateRaw > filters.toDate) return false;
         if (filters.vehicleType && entry.vehicle_type !== filters.vehicleType) return false;
@@ -135,7 +144,7 @@ const VehiclesView = () => {
                 .from('vehicle_entries')
                 .insert({
                     vehicle_number: formData.vehicleNumber,
-                    vehicle_type: formData.vehicleType,
+                    vehicle_type: formData.vehicleType === 'Other' ? specifyOther : formData.vehicleType,
                     driver_name: formData.driverName,
                     is_sbu_vehicle: formData.isSbuVehicle === 'Yes',
                     purpose: formData.purpose
@@ -159,6 +168,7 @@ const VehiclesView = () => {
                 driverName: '',
                 purpose: ''
             });
+            setSpecifyOther('');
             fetchVehicleLogs();
             alert('Vehicle entry authorized successfully!');
         } catch (error) {
@@ -189,16 +199,6 @@ const VehiclesView = () => {
                     gap: '0.75rem',
                     width: isMobileHeader ? '100%' : 'auto'
                 }}>
-                    <button style={{
-                        flex: isMobileHeader ? 1 : 'none',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid var(--glass-border)',
-                        color: 'var(--text-secondary)',
-                        borderRadius: '12px',
-                        justifyContent: 'center'
-                    }} className="desktop-only">
-                        <Camera size={18} /> ANPR Simulation
-                    </button>
                 </div>
             </div>
 
@@ -242,9 +242,24 @@ const VehiclesView = () => {
                             <option style={{ backgroundColor: '#1a1d21' }}>Van</option>
                             <option style={{ backgroundColor: '#1a1d21' }}>Bus</option>
                             <option style={{ backgroundColor: '#1a1d21' }}>Motorbike</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Three Wheeler</option>
                             <option style={{ backgroundColor: '#1a1d21' }}>Truck (Vendor)</option>
+                            <option style={{ backgroundColor: '#1a1d21' }}>Other</option>
                         </select>
                     </div>
+                    {formData.vehicleType === 'Other' && (
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Specify Vehicle Type *</label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="E.G., Tractor, Crane"
+                                value={specifyOther}
+                                onChange={(e) => setSpecifyOther(e.target.value)}
+                                style={{ width: '100%', padding: '0.625rem', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-main)' }}
+                            />
+                        </div>
+                    )}
                     <div>
                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Driver Name *</label>
                         <input
@@ -277,8 +292,23 @@ const VehiclesView = () => {
             <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
                     <Filter size={18} color="var(--primary)" />
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Filter Records</h3>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Filter & Search</h3>
                 </div>
+
+                <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                        <Search size={18} />
+                    </div>
+                    <input 
+                        type="text"
+                        placeholder="Search by vehicle number, driver, or purpose..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '12px', fontSize: '0.875rem' }}
+                    />
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                     <div>
                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>From (Entry)</label>

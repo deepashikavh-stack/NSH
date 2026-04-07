@@ -7,9 +7,7 @@ const PublicMeetingRequestView = () => {
     const [loading, setLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [formData, setFormData] = useState({
-        visitorName: '',
-        visitorNic: '',
-        visitorContact: '',
+        visitors: [{ name: '', nic: '', contact: '' }],
         purpose: '',
         meetingWith: '',
         meetingDate: '',
@@ -27,44 +25,70 @@ const PublicMeetingRequestView = () => {
         });
     };
 
+    const handleAddVisitor = () => {
+        setFormData({
+            ...formData,
+            visitors: [...formData.visitors, { name: '', nic: '', contact: '' }]
+        });
+    };
+
+    const handleRemoveVisitor = (index) => {
+        if (formData.visitors.length > 1) {
+            const newVisitors = formData.visitors.filter((_, i) => i !== index);
+            setFormData({ ...formData, visitors: newVisitors });
+        }
+    };
+
+    const handleVisitorChange = (index, field, value) => {
+        const newVisitors = [...formData.visitors];
+        newVisitors[index][field] = value;
+        setFormData({ ...formData, visitors: newVisitors });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
         try {
             const approvalToken = generateUUID();
+            const meetingGroupId = `REQ-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+            const insertData = formData.visitors.map(v => ({
+                visitor_name: v.name,
+                visitor_nic: v.nic,
+                visitor_contact: v.contact || '',
+                visitor_category: 'Parent',
+                meeting_with: formData.meetingWith || 'To be assigned',
+                purpose: formData.purpose,
+                meeting_date: formData.meetingDate || new Date().toLocaleDateString('en-CA'),
+                start_time: formData.startTime || '10:00',
+                end_time: formData.endTime || '11:00',
+                status: 'Meeting Requested',
+                approval_token: approvalToken,
+                request_source: 'webpage',
+                meeting_id: meetingGroupId
+            }));
 
             // 1. Insert into scheduled_meetings
-            const { data: meeting, error: insertError } = await supabase
+            const { data: meetings, error: insertError } = await supabase
                 .from('scheduled_meetings')
-                .insert({
-                    visitor_name: formData.visitorName,
-                    visitor_nic: formData.visitorNic,
-                    visitor_contact: formData.visitorContact,
-                    visitor_category: 'Parent',
-                    meeting_with: formData.meetingWith || 'To be assigned',
-                    purpose: formData.purpose,
-                    meeting_date: formData.meetingDate || new Date().toLocaleDateString('en-CA'),
-                    start_time: formData.startTime || '10:00',
-                    end_time: formData.endTime || '11:00',
-                    status: 'Meeting Requested',
-                    approval_token: approvalToken,
-                    request_source: 'webpage'
-                })
-                .select()
-                .single();
+                .insert(insertData)
+                .select();
 
             if (insertError) throw insertError;
+
+            const visitorNames = formData.visitors.map(v => v.name).join(', ');
+            const allContacts = [...new Set(formData.visitors.map(v => v.contact).filter(c => c))].join(', ');
 
             // 2. Trigger Telegram Notification with isExternal = true
             console.log('PublicMeetingRequestView: Triggering Telegram with isExternal=true');
             const telegramData = await sendTelegramNotification(
-                formData.visitorName,
+                visitorNames,
                 formData.purpose,
                 formData.meetingWith,
-                meeting.id,
+                meetingGroupId, // Pass meetingGroupId instead of individual ID
                 approvalToken,
-                formData.visitorContact,
+                allContacts,
                 true, // isExternal flag
                 'webpage', // source
                 formData.meetingDate,
@@ -75,7 +99,7 @@ const PublicMeetingRequestView = () => {
                 await supabase.from('scheduled_meetings').update({
                     telegram_message_id: telegramData.message_id.toString(),
                     telegram_chat_id: telegramData.chat_id.toString()
-                }).eq('id', meeting.id);
+                }).eq('meeting_id', meetingGroupId);
             }
 
             setSubmitted(true);
@@ -141,53 +165,78 @@ const PublicMeetingRequestView = () => {
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div className="space-y-4">
-                            <div style={{ position: 'relative' }}>
-                                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Your Full Name"
-                                    value={formData.visitorName}
-                                    onChange={(e) => setFormData({ ...formData, visitorName: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
-                                />
+                            
+                            {/* Dynamic Visitors List */}
+                            <div style={{ display: 'grid', gap: '1.5rem' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>Visitors Information</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddVisitor}
+                                        style={{ color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'none' }}
+                                    >
+                                        + Add Visitor
+                                    </button>
+                                </label>
+                                
+                                {formData.visitors.map((visitor, index) => (
+                                    <div key={index} className="animate-fade-in" style={{ padding: '1.25rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid var(--glass-border)', display: 'grid', gap: '1rem', position: 'relative' }}>
+                                        {formData.visitors.length > 1 && (
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleRemoveVisitor(index)}
+                                                style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'none', color: '#ef4444' }}
+                                            >
+                                                <XCircle size={16} />
+                                            </button>
+                                        )}
+                                        <div style={{ position: 'relative' }}>
+                                            <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder={`Visitor ${index + 1} Name`}
+                                                value={visitor.name}
+                                                onChange={(e) => handleVisitorChange(index, 'name', e.target.value)}
+                                                style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                            <div style={{ position: 'relative' }}>
+                                                <FileText size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    placeholder="NIC / Passport"
+                                                    value={visitor.nic}
+                                                    onChange={(e) => handleVisitorChange(index, 'nic', e.target.value)}
+                                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
+                                                />
+                                            </div>
+                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
+                                                <Phone size={16} style={{ marginLeft: '1rem', color: 'var(--text-muted)' }} />
+                                                <span style={{ padding: '0 0.5rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: '0.8rem' }}>+94</span>
+                                                <input
+                                                    type="tel"
+                                                    required={index === 0}
+                                                    placeholder="775..."
+                                                    value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
+                                                    onChange={(e) => {
+                                                        let val = e.target.value.replace(/\D/g, '');
+                                                        if (val.startsWith('0')) val = val.substring(1);
+                                                        handleVisitorChange(index, 'contact', val ? '+94' + val : '');
+                                                    }}
+                                                    pattern="\d{9}"
+                                                    title="9 digits after +94"
+                                                    style={{ width: '100%', padding: '1rem 1rem 1rem 0.25rem', backgroundColor: 'transparent', border: 'none', color: 'var(--text-main)', outline: 'none', fontSize: '0.9rem' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
 
-                            <div style={{ position: 'relative' }}>
-                                <FileText size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="NIC / Passport Number"
-                                    value={formData.visitorNic}
-                                    onChange={(e) => setFormData({ ...formData, visitorNic: e.target.value })}
-                                    style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', color: 'var(--text-main)', outline: 'none' }}
-                                />
-                            </div>
 
-                            <div style={{ position: 'relative' }}>
-
-                                <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: formData.visitorContact && formData.visitorContact.replace('+94', '').length > 9 ? '1px solid #ef4444' : '1px solid var(--glass-border)', overflow: 'hidden' }}>
-                                    <span style={{ padding: '1rem 0.5rem 1rem 1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, borderRight: '1px solid var(--glass-border)' }}>+94</span>
-                                    <input
-                                        type="tel"
-                                        required
-                                        placeholder="775432765"
-                                        value={formData.visitorContact ? formData.visitorContact.replace(/^\+94/, '') : ''}
-                                        onChange={(e) => {
-                                            let val = e.target.value.replace(/\D/g, '');
-                                            if (val.startsWith('0')) val = val.substring(1);
-                                            setFormData({ ...formData, visitorContact: val ? '+94' + val : '' });
-                                        }}
-                                        pattern="\d{9}"
-                                        title="Contact number must be exactly 9 digits after +94"
-                                        style={{ width: '100%', padding: '1rem', backgroundColor: 'transparent', border: 'none', color: 'var(--text-main)', outline: 'none' }}
-                                    />
-                                </div>
-                                {formData.visitorContact && formData.visitorContact.replace('+94', '').length > 9 && (
-                                    <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block', position: 'absolute', bottom: '-20px', left: '1rem' }}>Invalid contact number (exceeds 9 digits)</span>
-                                )}
-                            </div>
 
                             <div style={{ position: 'relative' }}>
                                 <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />

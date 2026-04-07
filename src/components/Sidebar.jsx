@@ -24,7 +24,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, isOpen, onClose, isM
         { id: 'scheduled-meetings', label: 'Scheduled Meetings', icon: Calendar, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Operations'] },
         { id: 'vehicles', label: 'Vehicle Management', icon: Car, roles: ['Admin', 'Security Officer', 'Security HOD', 'School Management', 'School Operations'] },
         { id: 'reports', label: 'Reports & Stats', icon: PieChart, roles: ['Admin', 'Security HOD', 'School Management'] },
-        { id: 'audit-trail', label: 'Audit Trail', icon: ClipboardList, roles: ['Admin', 'Security HOD'] },
+        { id: 'audit-trail', label: 'Audit Trail', icon: ClipboardList, roles: ['Admin'] },
         { id: 'user-management', label: 'User Management', icon: UserCog, roles: ['Admin'] },
     ];
 
