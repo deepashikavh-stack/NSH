@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Car, Search, PlusCircle, Camera, Clock, CheckCircle, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../lib/audit';
@@ -140,7 +139,7 @@ const VehiclesView = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { data: newEntry, error } = await supabase
+            const { error } = await supabase
                 .from('vehicle_entries')
                 .insert({
                     vehicle_number: formData.vehicleNumber,

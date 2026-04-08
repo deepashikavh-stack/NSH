@@ -6,7 +6,7 @@ import LogTable from '../components/LogTable';
 
 const VisitorManagementView = ({ user }) => {
     const [unifiedLog, setUnifiedLog] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [, setLoading] = useState(true);
     const [filters, setFilters] = useState({
         fromDate: '',
         toDate: '',

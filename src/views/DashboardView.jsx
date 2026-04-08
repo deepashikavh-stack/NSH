@@ -3,7 +3,7 @@ import StatCard from '../components/StatCard';
 import { Users, Car, Clock, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const DashboardView = ({ user }) => {
+const DashboardView = () => {
     const [stats, setStats] = useState([
         { title: 'Total Visitors', value: '0', icon: Users, trend: 'neutral', trendValue: '0%', color: '#2563eb' },
         { title: 'Vehicles (Traffic)', value: '0', icon: Car, trend: 'neutral', trendValue: '0%', color: '#10b981' },
@@ -56,13 +56,11 @@ const DashboardView = ({ user }) => {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDashboardStats();
         const interval = setInterval(fetchDashboardStats, 10000);
         return () => clearInterval(interval);
     }, []);
-
-    // Role-based visibility for analytics
-    const showAnalytics = user?.role !== 'Security Officer';
 
     return (
         <div className="animate-fade-in" style={{ padding: '2rem' }}>

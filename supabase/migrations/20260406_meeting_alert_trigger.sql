@@ -6,17 +6,19 @@ BEGIN
     IF (NEW.status = 'Meeting Requested' AND NEW.request_type = 'Kiosk') THEN
         INSERT INTO alerts (
             type,
-            title,
+            category,
             message,
             severity,
-            status,
+            source_id,
+            is_read,
             metadata
         ) VALUES (
-            'Meeting Approval',
-            'New Kiosk Request',
+            'Meeting',
+            'Pending Approval',
             'New visitor ' || NEW.visitor_name || ' is requesting an appointment with ' || NEW.host_name || '.',
-            'medium',
-            'Unread',
+            'warning',
+            NEW.id::TEXT,
+            false,
             jsonb_build_object(
                 'meeting_id', NEW.id,
                 'visitor_name', NEW.visitor_name,

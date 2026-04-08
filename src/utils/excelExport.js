@@ -12,7 +12,6 @@ export const exportToExcel = ({ title, data, columns, filename, metadata }) => {
     // 1. Flatten columns to handle nested headers
     const flatColumns = columns.flatMap(col => col.subColumns || [col]);
     const numCols = flatColumns.length;
-    const midIdx = Math.floor(numCols / 2);
 
     // 2. Prepare Header Branding (AOA)
     const displayTitle = title === 'Visitor Logs' ? 'VISITOR LOG' : 
@@ -42,7 +41,7 @@ export const exportToExcel = ({ title, data, columns, filename, metadata }) => {
                     } else {
                         val = rendered;
                     }
-                } catch (e) {
+                } catch {
                     // Keep raw value
                 }
             }
@@ -60,7 +59,7 @@ export const exportToExcel = ({ title, data, columns, filename, metadata }) => {
     ];
 
     // 6. Calculate Column Widths (Auto-fit)
-    const colWidths = flatColumns.map((col, i) => {
+    const colWidths = flatColumns.map((col) => {
         const headerLen = col.header.length;
         const maxContentLen = data.reduce((max, item) => {
             const rawVal = item[col.key];

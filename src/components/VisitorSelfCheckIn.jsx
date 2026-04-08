@@ -885,8 +885,9 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
                                             <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#fff', borderRadius: '10px' }}>
                                                 <span style={{ padding: '0.625rem 0.5rem', color: '#94a3b8', fontWeight: 700, fontSize: '0.75rem', borderRight: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }}>+94</span>
                                                 <input type="tel" required placeholder="775432765" value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
+                                                    maxLength={9}
                                                     onChange={(e) => {
-                                                        let val = e.target.value.replace(/\D/g, '');
+                                                        let val = e.target.value.replace(/\D/g, '').slice(0, 9);
                                                         if (val.startsWith('0')) val = val.substring(1);
                                                         updateVisitor(index, 'contact', val ? '+94' + val : '');
                                                     }}
@@ -895,17 +896,18 @@ const VisitorSelfCheckIn = ({ onClose,  __unused_onSuccess, theme, toggleTheme }
                                         </div>
                                     ))}
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                                        <button type="button" onClick={addVisitor} style={{ padding: '0.625rem', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', border: '1px solid var(--glass-border)', cursor: 'pointer' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                        <button type="button" onClick={addVisitor} style={{ padding: '0.625rem 1.5rem', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', borderRadius: '10px', fontWeight: 700, fontSize: '0.8rem', border: '1px solid var(--glass-border)', cursor: 'pointer' }}>
                                             + {t('kiosk.add_visitor_button')}
                                         </button>
-                                        <div style={{ position: 'relative', gridColumn: '2 / 4' }}>
-                                            <select required value={formData.sbu} onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
-                                                style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 1rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem', appearance: 'none' }}>
-                                                <option value="" disabled>{t('kiosk.sbu_placeholder')}</option>
-                                                {COMPANIES.map(comp => <option key={comp.code} value={comp.name}>{comp.name}</option>)}
-                                            </select>
-                                        </div>
+                                    </div>
+
+                                    <div style={{ position: 'relative' }}>
+                                        <select required value={formData.sbu} onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
+                                            style={{ width: '100%', padding: '0.625rem 0.75rem 0.625rem 1rem', backgroundColor: '#fff', borderRadius: '10px', border: 'none', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem', appearance: 'none' }}>
+                                            <option value="" disabled>{t('kiosk.sbu_placeholder')}</option>
+                                            {COMPANIES.map(comp => <option key={comp.code} value={comp.name}>{comp.name}</option>)}
+                                        </select>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>

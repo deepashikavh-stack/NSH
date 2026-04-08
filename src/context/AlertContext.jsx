@@ -16,7 +16,8 @@ import { supabase } from '../lib/supabase';
 const AlertContext = createContext();
 const alertService = new AlertService();
 
- /* eslint-disable-next-line react-refresh/only-export-components */ export const useAlerts = () => useContext(AlertContext);
+// eslint-disable-next-line react-refresh/only-export-components
+export const useAlerts = () => useContext(AlertContext);
 
 export const AlertProvider = ({ children, user }) => {
     const [alerts, setAlerts] = useState([]);

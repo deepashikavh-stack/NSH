@@ -5,8 +5,6 @@ import { Calendar, Clock, User, Users, FileText, Plus, Search, Filter, Edit, Tra
 import MeetingScheduler from '../components/MeetingScheduler';
 import { supabase } from '../lib/supabase';
 import { sendSMS } from '../lib/sms';
-import { formatApprovedMessage, formatDeniedMessage, updateTelegramMessage } from '../lib/telegram';
-import { logAudit } from '../lib/audit';
 
 const ScheduledMeetingsView = () => {
     const [meetings, setMeetings] = useState([]);

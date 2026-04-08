@@ -70,7 +70,7 @@ const PublicMeetingRequestView = () => {
             }));
 
             // 1. Insert into scheduled_meetings
-            const { data: meetings, error: insertError } = await supabase
+            const { error: insertError } = await supabase
                 .from('scheduled_meetings')
                 .insert(insertData)
                 .select();

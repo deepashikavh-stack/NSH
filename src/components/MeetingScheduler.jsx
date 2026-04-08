@@ -332,13 +332,14 @@ const MeetingScheduler = ({ onClose, onSuccess, initialData }) => {
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-muted)' }}>
                                             Contact Number
                                         </label>
-                                            <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', border: visitor.contact && visitor.contact.replace('+94', '').length > 9 ? '1px solid #ef4444' : '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
                                                 <span style={{ padding: '0.625rem 0.5rem 0.625rem 0.625rem', color: 'var(--text-muted)', fontWeight: 600, borderRight: '1px solid var(--border)' }}>+94</span>
                                                 <input
                                                     type="tel"
                                                     value={visitor.contact ? visitor.contact.replace(/^\+94/, '') : ''}
+                                                    maxLength={9}
                                                     onChange={(e) => {
-                                                        let val = e.target.value.replace(/\D/g, '');
+                                                        let val = e.target.value.replace(/\D/g, '').slice(0, 9);
                                                         if (val.startsWith('0')) val = val.substring(1);
                                                         updateVisitor(index, 'contact', val ? '+94' + val : '');
                                                     }}
@@ -348,9 +349,6 @@ const MeetingScheduler = ({ onClose, onSuccess, initialData }) => {
                                                     style={{ width: '100%', padding: '0.625rem', border: 'none', backgroundColor: 'transparent', color: 'var(--text-main)', outline: 'none' }}
                                                 />
                                             </div>
-                                            {visitor.contact && visitor.contact.replace('+94', '').length > 9 && (
-                                                <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>Invalid contact number (exceeds 9 digits)</span>
-                                            )}
                                     </div>
                                 </div>
                             ))}

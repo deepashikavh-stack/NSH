@@ -169,20 +169,6 @@ const ReportsView = ({ user }) => {
         return () => observer.disconnect();
     }, []);
 
-    // Access control
-    const allowedRoles = ['Admin', 'Security HOD', 'School Management'];
-    if (!allowedRoles.includes(user?.role)) {
-        return (
-            <div style={{ padding: '4rem', textAlign: 'center' }}>
-                <div className="card" style={{ maxWidth: '500px', margin: '0 auto', padding: '3rem', border: '1px solid rgba(239,68,68,0.2)' }}>
-                    <XCircle size={48} color="#ef4444" style={{ marginBottom: '1.5rem' }} />
-                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>Access Denied</h2>
-                    <p style={{ color: 'var(--text-muted)' }}>Your current security clearance does not permit access to advanced analytics.</p>
-                </div>
-            </div>
-        );
-    }
-
     // ── Data fetching ──────────────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -212,6 +198,20 @@ const ReportsView = ({ user }) => {
     }, [period]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // Access control
+    const allowedRoles = ['Admin', 'Security HOD', 'School Management'];
+    if (!allowedRoles.includes(user?.role)) {
+        return (
+            <div style={{ padding: '4rem', textAlign: 'center' }}>
+                <div className="card" style={{ maxWidth: '500px', margin: '0 auto', padding: '3rem', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <XCircle size={48} color="#ef4444" style={{ marginBottom: '1.5rem' }} />
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '1rem' }}>Access Denied</h2>
+                    <p style={{ color: 'var(--text-muted)' }}>Your current security clearance does not permit access to advanced analytics.</p>
+                </div>
+            </div>
+        );
+    }
 
     // ── PDF Export helpers ──────────────────────────────────────────────────────
     const periodLabel = PERIODS.find(p => p.value === period)?.label || period;
@@ -260,7 +260,7 @@ const ReportsView = ({ user }) => {
 
     // 2. Export: Meeting Scheduling Method
     const exportSchedulingMethod = () => {
-        const { labels, datasets } = getSchedulingMethodData();
+        const { datasets } = getSchedulingMethodData();
         const rows = breakdownRows(['On-Arrival', 'Via System', 'Via Web Page'], datasets[0].data);
         exportChart(`Meeting Scheduling Method — ${periodLabel}`, breakdownCols, rows,
             `scheduling_method_${periodShort}_${new Date().toISOString().split('T')[0]}`);
@@ -396,7 +396,7 @@ const ReportsView = ({ user }) => {
             labels: ['On-Arrival', 'Via System', 'Via Web Page'],
             datasets: [{
                 data: [kiosk, system, webPage],
-                backgroundColor: [COLORS[0], 'rgba(59,130,246,0.85)', COLORS[3]],
+                backgroundColor: [COLORS[0], COLORS[1], COLORS[3]],
                 borderWidth: 2,
                 borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
             }]

@@ -81,6 +81,7 @@ function AppContent() {
     // Sync activeTab with URL if possible, or just keep it simple for now
     const path = location.pathname.substring(1);
     if (path && ['dashboard', 'scheduled-meetings', 'visitors', 'vehicles', 'reports', 'audit-trail', 'user-management', 'settings'].includes(path)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(path);
     }
   }, [location, setActiveTab]);
